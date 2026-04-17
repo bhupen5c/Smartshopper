@@ -111,6 +111,11 @@ const STORES: StoreInfo[] = [
   { storeId: 'iga-fitz', retailerCode: 'iga', suburb: 'Fitzroy', lat: -37.7989, lng: 144.9780 },
   { storeId: 'iga-fort', retailerCode: 'iga', suburb: 'Fortitude Valley', lat: -27.4560, lng: 153.0360 },
   { storeId: 'iga-frem', retailerCode: 'iga', suburb: 'Fremantle', lat: -32.0569, lng: 115.7439 },
+  // Canberra / ACT
+  { storeId: 'coles-bell', retailerCode: 'coles', suburb: 'Belconnen', lat: -35.2380, lng: 149.0660 },
+  { storeId: 'ww-woden', retailerCode: 'woolworths', suburb: 'Woden', lat: -35.3460, lng: 149.0870 },
+  { storeId: 'aldi-kipp', retailerCode: 'aldi', suburb: 'Kippax', lat: -35.2290, lng: 149.0320 },
+  { storeId: 'iga-manuka', retailerCode: 'iga', suburb: 'Manuka', lat: -35.3180, lng: 149.1380 },
 ];
 
 // ─── Price Matrix (productId → retailer → price info) ───
