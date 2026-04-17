@@ -16,6 +16,11 @@ interface OptimiseInput {
   preferences: OptimiserPreferences;
 }
 
+/** Internal extension to carry distance for tie-breaking. */
+interface PlanWithMeta extends OptimiserPlan {
+  _distanceKm?: number;
+}
+
 /**
  * Produce a ranked set of purchase plans:
  *   - one `single_retailer` plan per retailer with full coverage,
@@ -59,8 +64,15 @@ export function optimiseBasket({ items, offers, preferences }: OptimiseInput): O
     if (deliveryOnly) plans.push(deliveryOnly);
   }
 
-  // Rank cheapest-first.
-  plans.sort((a, b) => a.grandTotal - b.grandTotal);
+  // Rank cheapest-first; break ties by total travel+time cost, then distance.
+  plans.sort((a, b) => {
+    const diff = a.grandTotal - b.grandTotal;
+    if (Math.abs(diff) > 0.01) return diff;
+    // Same price → prefer shorter distance (stored in _distanceKm metadata)
+    const distA = (a as PlanWithMeta)._distanceKm ?? 999;
+    const distB = (b as PlanWithMeta)._distanceKm ?? 999;
+    return distA - distB;
+  });
   return plans;
 }
 
@@ -84,7 +96,7 @@ function buildSingleRetailerPlan(
   const bestStoreOffer = pickClosestStore(byRetailer, prefs);
   const quote = quoteForRetailer(retailerCode, subtotal, bestStoreOffer, prefs);
 
-  return {
+  const plan: PlanWithMeta = {
     kind: 'single_retailer',
     lines,
     retailerCodes: [retailerCode],
@@ -98,6 +110,8 @@ function buildSingleRetailerPlan(
     missingItemIds: missing,
     explanation: buildSingleRetailerExplanation(retailerCode, lines.length, items.length, quote),
   };
+  plan._distanceKm = quote.distanceKm;
+  return plan;
 }
 
 function buildMultiRetailerPlan(
@@ -225,7 +239,13 @@ function chooseCheapestLinesForItems(
       missing.push(item.listItemId);
       continue;
     }
-    const cheapest = candidates.reduce((a, b) => (a.price <= b.price ? a : b));
+    // Pick cheapest; break ties by distance (closer store wins)
+    const cheapest = candidates.reduce((a, b) => {
+      if (a.price < b.price) return a;
+      if (b.price < a.price) return b;
+      // Same price → prefer the closer store
+      return a.distanceKm <= b.distanceKm ? a : b;
+    });
     lines.push({
       listItemId: item.listItemId,
       productId: item.productId,
