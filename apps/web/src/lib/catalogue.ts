@@ -76,7 +76,12 @@ export const CATALOGUE_PRODUCTS: CatalogueProduct[] = [
   { id: 'p40', name: 'Twinings English Breakfast Tea', brand: 'Twinings', category: 'Drinks', size: '100 bags' },
 ];
 
-// ─── Store Locations (3 per retailer across Sydney, Melbourne, Brisbane) ───
+// ─── Dynamic Store Generation ───
+// Instead of hardcoding stores per city, we generate a realistic nearby
+// store for each retailer based on the user's location. In Australia,
+// Coles and Woolworths are typically within 2-4 km of any suburban home,
+// ALDI within 3-6 km, and IGA within 2-5 km. We simulate this with small
+// deterministic offsets so the optimizer always has stores to compare.
 
 interface StoreInfo {
   storeId: string;
@@ -86,42 +91,27 @@ interface StoreInfo {
   lng: number;
 }
 
-const STORES: StoreInfo[] = [
-  // Coles
-  { storeId: 'coles-bondi', retailerCode: 'coles', suburb: 'Bondi Junction', lat: -33.8930, lng: 151.2475 },
-  { storeId: 'coles-melb', retailerCode: 'coles', suburb: 'Melbourne Central', lat: -37.8100, lng: 144.9625 },
-  { storeId: 'coles-bris', retailerCode: 'coles', suburb: 'Brisbane CBD', lat: -27.4710, lng: 153.0234 },
-  { storeId: 'coles-parr', retailerCode: 'coles', suburb: 'Parramatta', lat: -33.8166, lng: 151.0010 },
-  { storeId: 'coles-adel', retailerCode: 'coles', suburb: 'Adelaide', lat: -34.9285, lng: 138.6007 },
-  { storeId: 'coles-perth', retailerCode: 'coles', suburb: 'Perth', lat: -31.9505, lng: 115.8605 },
-  // Woolworths
-  { storeId: 'ww-bondi', retailerCode: 'woolworths', suburb: 'Bondi Junction', lat: -33.8925, lng: 151.2470 },
-  { storeId: 'ww-melb', retailerCode: 'woolworths', suburb: 'QV Melbourne', lat: -37.8110, lng: 144.9660 },
-  { storeId: 'ww-bris', retailerCode: 'woolworths', suburb: 'Queen St Mall', lat: -27.4700, lng: 153.0260 },
-  { storeId: 'ww-chat', retailerCode: 'woolworths', suburb: 'Chatswood', lat: -33.7963, lng: 151.1832 },
-  { storeId: 'ww-adel', retailerCode: 'woolworths', suburb: 'Adelaide', lat: -34.9245, lng: 138.6010 },
-  { storeId: 'ww-perth', retailerCode: 'woolworths', suburb: 'Perth', lat: -31.9510, lng: 115.8610 },
-  // ALDI
-  { storeId: 'aldi-marr', retailerCode: 'aldi', suburb: 'Marrickville', lat: -33.9100, lng: 151.1554 },
-  { storeId: 'aldi-brun', retailerCode: 'aldi', suburb: 'Brunswick', lat: -37.7665, lng: 144.9596 },
-  { storeId: 'aldi-camp', retailerCode: 'aldi', suburb: 'Camp Hill', lat: -27.4908, lng: 153.0744 },
-  { storeId: 'aldi-adel', retailerCode: 'aldi', suburb: 'Adelaide', lat: -34.9300, lng: 138.5950 },
-  // IGA
-  { storeId: 'iga-newt', retailerCode: 'iga', suburb: 'Newtown', lat: -33.8976, lng: 151.1795 },
-  { storeId: 'iga-fitz', retailerCode: 'iga', suburb: 'Fitzroy', lat: -37.7989, lng: 144.9780 },
-  { storeId: 'iga-fort', retailerCode: 'iga', suburb: 'Fortitude Valley', lat: -27.4560, lng: 153.0360 },
-  { storeId: 'iga-frem', retailerCode: 'iga', suburb: 'Fremantle', lat: -32.0569, lng: 115.7439 },
-  // Canberra / ACT
-  { storeId: 'coles-bell', retailerCode: 'coles', suburb: 'Belconnen', lat: -35.2380, lng: 149.0660 },
-  { storeId: 'coles-kipp', retailerCode: 'coles', suburb: 'Kippax', lat: -35.2300, lng: 149.0340 },
-  { storeId: 'ww-bell', retailerCode: 'woolworths', suburb: 'Belconnen', lat: -35.2390, lng: 149.0650 },
-  { storeId: 'ww-kipp', retailerCode: 'woolworths', suburb: 'Kippax', lat: -35.2285, lng: 149.0330 },
-  { storeId: 'ww-woden', retailerCode: 'woolworths', suburb: 'Woden', lat: -35.3460, lng: 149.0870 },
-  { storeId: 'aldi-kipp', retailerCode: 'aldi', suburb: 'Kippax', lat: -35.2290, lng: 149.0320 },
-  { storeId: 'aldi-bell', retailerCode: 'aldi', suburb: 'Belconnen', lat: -35.2400, lng: 149.0680 },
-  { storeId: 'iga-manuka', retailerCode: 'iga', suburb: 'Manuka', lat: -35.3180, lng: 149.1380 },
-  { storeId: 'iga-charno', retailerCode: 'iga', suburb: 'Charnwood', lat: -35.2050, lng: 149.0340 },
-];
+/** Typical distance offset per retailer (degrees, ~1-5 km) */
+const RETAILER_OFFSETS: Record<string, { dlat: number; dlng: number; typicalKm: string }> = {
+  coles:       { dlat: 0.015, dlng: 0.012, typicalKm: '2-3' },
+  woolworths:  { dlat: -0.012, dlng: 0.018, typicalKm: '2-4' },
+  aldi:        { dlat: 0.022, dlng: -0.015, typicalKm: '3-5' },
+  iga:         { dlat: -0.020, dlng: -0.022, typicalKm: '3-6' },
+};
+
+/**
+ * Generate a nearby store for each retailer, relative to the user's origin.
+ * Uses deterministic offsets so results are stable across page refreshes.
+ */
+function generateNearbyStores(origin: { lat: number; lng: number }): StoreInfo[] {
+  return Object.entries(RETAILER_OFFSETS).map(([retailerCode, offset]) => ({
+    storeId: `${retailerCode}-local`,
+    retailerCode,
+    suburb: 'Nearby',
+    lat: origin.lat + offset.dlat,
+    lng: origin.lng + offset.dlng,
+  }));
+}
 
 // ─── Price Matrix (productId → retailer → price info) ───
 
@@ -257,23 +247,7 @@ const PRICE_MATRIX: PriceEntry[] = [
 
 // ─── Build Offers (matching OptimiserOffer shape) ───
 
-function nearestStore(retailerCode: string, origin: { lat: number; lng: number }): StoreInfo | undefined {
-  const retailerStores = STORES.filter((s) => s.retailerCode === retailerCode);
-  if (!retailerStores.length) return undefined;
-
-  let best = retailerStores[0]!;
-  let bestDist = distance(origin, best);
-  for (let i = 1; i < retailerStores.length; i++) {
-    const d = distance(origin, retailerStores[i]!);
-    if (d < bestDist) {
-      best = retailerStores[i]!;
-      bestDist = d;
-    }
-  }
-  return best;
-}
-
-function distance(a: { lat: number; lng: number }, b: { lat: number; lng: number }): number {
+function haversineKm(a: { lat: number; lng: number }, b: { lat: number; lng: number }): number {
   const R = 6371;
   const dLat = ((b.lat - a.lat) * Math.PI) / 180;
   const dLng = ((b.lng - a.lng) * Math.PI) / 180;
@@ -285,18 +259,19 @@ function distance(a: { lat: number; lng: number }, b: { lat: number; lng: number
 
 /**
  * Build the full offer list for the optimizer, relative to a user's origin.
- * Each PriceEntry gets paired with the nearest store of that retailer.
+ * Dynamically generates a nearby store per retailer so every postcode works.
  */
 export function buildOffers(origin: { lat: number; lng: number }): OptimiserOffer[] {
-  const storeCache = new Map<string, StoreInfo | undefined>();
+  const nearbyStores = generateNearbyStores(origin);
+  const storeByRetailer = new Map<string, StoreInfo>();
+  for (const s of nearbyStores) {
+    storeByRetailer.set(s.retailerCode, s);
+  }
 
   return PRICE_MATRIX.map((pe) => {
-    if (!storeCache.has(pe.retailerCode)) {
-      storeCache.set(pe.retailerCode, nearestStore(pe.retailerCode, origin));
-    }
-    const store = storeCache.get(pe.retailerCode);
+    const store = storeByRetailer.get(pe.retailerCode);
     const product = CATALOGUE_PRODUCTS.find((p) => p.id === pe.productId)!;
-    const dist = store ? distance(origin, store) : 0;
+    const dist = store ? haversineKm(origin, store) : 0;
 
     return {
       retailerCode: pe.retailerCode,
@@ -313,5 +288,3 @@ export function buildOffers(origin: { lat: number; lng: number }): OptimiserOffe
     };
   });
 }
-
-export { STORES };
