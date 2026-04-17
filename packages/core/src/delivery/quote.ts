@@ -103,10 +103,9 @@ export function quoteFulfilment(input: QuoteInput, mode: FulfilmentMode): Quote 
 
   // No fuel cost when walking
   const travelCost = mode === 'delivery' || isWalkable ? 0 : distanceKm * 2 * input.fuelCostPerKm;
-  // Walking time is valued at a lower rate (leisure vs productive time)
-  const walkingTimeDiscount = 0.3; // value walking time at 30% of hourly rate
-  const effectiveTimeRate = isWalkable ? input.timeValuePerHour * walkingTimeDiscount : input.timeValuePerHour;
-  const timeCost = ((roundTripMinutes + inStoreMinutes) / 60) * effectiveTimeRate;
+  // Time cost excluded — users don't think of their time as a dollar cost
+  // and it inflated totals confusingly. Time info is still shown for reference.
+  const timeCost = 0;
 
   // Fee / eligibility per mode.
   let fee = 0;

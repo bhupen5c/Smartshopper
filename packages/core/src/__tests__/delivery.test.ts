@@ -20,8 +20,9 @@ describe('delivery recommender', () => {
     expect(top.mode).not.toBe('delivery');
   });
 
-  it('picks delivery when the user\'s time is valuable and the basket is small', () => {
-    // Busy professional at $80/h — driving becomes expensive fast.
+  it('prefers click_and_collect over delivery when time cost is excluded', () => {
+    // With time cost removed, click & collect (free, short trip) beats
+    // delivery ($11 fee) for a small basket under the free threshold.
     const ranked = recommendFulfilment({
       retailerCode: 'coles',
       storeLocation: SOUTH_YARRA,
@@ -32,7 +33,7 @@ describe('delivery recommender', () => {
       timeValuePerHour: 80,
     });
     const top = ranked.find((q) => q.eligible)!;
-    expect(top.mode).toBe('delivery');
+    expect(top.mode).toBe('click_and_collect');
   });
 
   it('switches to delivery once the basket clears the free-delivery threshold', () => {

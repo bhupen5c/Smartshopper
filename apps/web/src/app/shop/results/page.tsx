@@ -255,14 +255,8 @@ function PlanCard({
         )}
         {plan.totalTravelCost > 0 && (
           <div className="flex justify-between text-gray-500">
-            <span>Travel cost</span>
+            <span>Travel cost (fuel)</span>
             <span>+{formatAUD(plan.totalTravelCost)}</span>
-          </div>
-        )}
-        {plan.totalTimeCost > 0 && (
-          <div className="flex justify-between text-gray-500">
-            <span>Time cost</span>
-            <span>+{formatAUD(plan.totalTimeCost)}</span>
           </div>
         )}
         {plan.totalLoyaltyRebate > 0 && (
