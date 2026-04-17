@@ -12,6 +12,7 @@ import { recommendFulfilment } from '@smartshopper/core/delivery';
 import { DEFAULT_DELIVERY_POLICIES } from '@smartshopper/core/delivery';
 import type { OptimiserPlan } from '@smartshopper/core/basket';
 import type { Quote } from '@smartshopper/core/delivery';
+import { StoreMap } from '@/components/shop/store-map';
 
 const RETAILER_COLORS: Record<string, string> = {
   coles: 'bg-red-50 text-red-600',
@@ -177,6 +178,21 @@ export default function ResultsPage() {
         />
         </motion.div>
       ))}
+
+      {/* Real store map from OpenStreetMap */}
+      {origin && (
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: plans.length * 0.1 + 0.2 }}
+        >
+          <StoreMap
+            lat={origin.lat}
+            lng={origin.lng}
+            highlightRetailers={plans[0]?.retailerCodes}
+          />
+        </motion.div>
+      )}
     </div>
   );
 }
