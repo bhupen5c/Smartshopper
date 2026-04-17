@@ -74,6 +74,32 @@ export const CATALOGUE_PRODUCTS: CatalogueProduct[] = [
   { id: 'p39', name: 'Cobram Estate Extra Virgin Olive Oil', brand: 'Cobram', category: 'Pantry', size: '750ml' },
   // Tea
   { id: 'p40', name: 'Twinings English Breakfast Tea', brand: 'Twinings', category: 'Drinks', size: '100 bags' },
+  // Hair Care
+  { id: 'p41', name: 'Pantene Shampoo Daily Moisture', brand: 'Pantene', category: 'Hair Care', size: '350ml' },
+  { id: 'p42', name: 'Pantene Conditioner Daily Moisture', brand: 'Pantene', category: 'Hair Care', size: '350ml' },
+  { id: 'p43', name: 'Head & Shoulders Anti-Dandruff Shampoo', brand: 'Head & Shoulders', category: 'Hair Care', size: '400ml' },
+  { id: 'p44', name: 'Garnier Fructis Shampoo', brand: 'Garnier', category: 'Hair Care', size: '315ml' },
+  { id: 'p45', name: 'TRESemmé Hair Spray Extra Hold', brand: 'TRESemmé', category: 'Hair Care', size: '360g' },
+  { id: 'p46', name: "L'Oréal Excellence Hair Colour", brand: "L'Oréal", category: 'Hair Care', size: '1pk' },
+  // Skin Care
+  { id: 'p47', name: 'Cetaphil Moisturising Lotion', brand: 'Cetaphil', category: 'Skin Care', size: '500ml' },
+  { id: 'p48', name: 'Cancer Council Sunscreen SPF50+', brand: 'Cancer Council', category: 'Skin Care', size: '200ml' },
+  { id: 'p49', name: 'Dove Beauty Bar Soap', brand: 'Dove', category: 'Personal', size: '4pk' },
+  // More Personal Care
+  { id: 'p50', name: 'Rexona Antiperspirant Roll-On', brand: 'Rexona', category: 'Personal', size: '50ml' },
+  { id: 'p51', name: 'Listerine Mouthwash Cool Mint', brand: 'Listerine', category: 'Personal', size: '500ml' },
+  // More Pantry
+  { id: 'p52', name: 'Wattle Valley Soy Sauce', brand: 'Kikkoman', category: 'Pantry', size: '250ml' },
+  { id: 'p53', name: 'Continental Cup-a-Soup Chicken', brand: 'Continental', category: 'Pantry', size: '4pk' },
+  // More Frozen
+  { id: 'p54', name: 'Birds Eye Fish Fingers', brand: 'Birds Eye', category: 'Frozen', size: '24pk' },
+  // Paper & Household
+  { id: 'p55', name: 'Viva Paper Towel', brand: 'Viva', category: 'Household', size: '2pk' },
+  // Pet
+  { id: 'p56', name: 'Whiskas Cat Food Tuna', brand: 'Whiskas', category: 'Pet', size: '400g' },
+  { id: 'p57', name: 'Pedigree Dog Food Chicken', brand: 'Pedigree', category: 'Pet', size: '700g' },
+  // Baby
+  { id: 'p58', name: 'Huggies Baby Wipes', brand: 'Huggies', category: 'Baby', size: '80pk' },
 ];
 
 // ─── Dynamic Store Generation ───
@@ -243,6 +269,52 @@ const PRICE_MATRIX: PriceEntry[] = [
   // Tea
   { productId: 'p40', retailerCode: 'coles', price: 7.50, isTrueSpecial: false, memberOnly: false },
   { productId: 'p40', retailerCode: 'woolworths', price: 6.50, isTrueSpecial: true, memberOnly: false },
+  // Hair Care
+  { productId: 'p41', retailerCode: 'coles', price: 8.50, isTrueSpecial: false, memberOnly: false },
+  { productId: 'p41', retailerCode: 'woolworths', price: 7.00, isTrueSpecial: true, memberOnly: false },
+  { productId: 'p41', retailerCode: 'aldi', price: 4.99, isTrueSpecial: false, memberOnly: false },
+  { productId: 'p42', retailerCode: 'coles', price: 8.50, isTrueSpecial: false, memberOnly: false },
+  { productId: 'p42', retailerCode: 'woolworths', price: 7.00, isTrueSpecial: true, memberOnly: false },
+  { productId: 'p43', retailerCode: 'coles', price: 10.00, isTrueSpecial: true, memberOnly: false },
+  { productId: 'p43', retailerCode: 'woolworths', price: 12.00, isTrueSpecial: false, memberOnly: false },
+  { productId: 'p44', retailerCode: 'coles', price: 6.50, isTrueSpecial: false, memberOnly: false },
+  { productId: 'p44', retailerCode: 'woolworths', price: 5.50, isTrueSpecial: true, memberOnly: false },
+  { productId: 'p45', retailerCode: 'coles', price: 7.00, isTrueSpecial: false, memberOnly: false },
+  { productId: 'p45', retailerCode: 'woolworths', price: 7.00, isTrueSpecial: false, memberOnly: false },
+  { productId: 'p46', retailerCode: 'coles', price: 16.00, isTrueSpecial: false, memberOnly: false },
+  { productId: 'p46', retailerCode: 'woolworths', price: 14.00, isTrueSpecial: true, memberOnly: false },
+  // Skin Care
+  { productId: 'p47', retailerCode: 'coles', price: 14.00, isTrueSpecial: false, memberOnly: false },
+  { productId: 'p47', retailerCode: 'woolworths', price: 12.50, isTrueSpecial: true, memberOnly: false },
+  { productId: 'p48', retailerCode: 'coles', price: 11.00, isTrueSpecial: false, memberOnly: false },
+  { productId: 'p48', retailerCode: 'woolworths', price: 10.00, isTrueSpecial: true, memberOnly: false },
+  { productId: 'p49', retailerCode: 'coles', price: 6.00, isTrueSpecial: true, memberOnly: false },
+  { productId: 'p49', retailerCode: 'woolworths', price: 7.50, isTrueSpecial: false, memberOnly: false },
+  // Personal Care
+  { productId: 'p50', retailerCode: 'coles', price: 5.50, isTrueSpecial: false, memberOnly: false },
+  { productId: 'p50', retailerCode: 'woolworths', price: 4.50, isTrueSpecial: true, memberOnly: false },
+  { productId: 'p51', retailerCode: 'coles', price: 8.00, isTrueSpecial: false, memberOnly: false },
+  { productId: 'p51', retailerCode: 'woolworths', price: 7.00, isTrueSpecial: true, memberOnly: false },
+  // More Pantry
+  { productId: 'p52', retailerCode: 'coles', price: 3.50, isTrueSpecial: false, memberOnly: false },
+  { productId: 'p52', retailerCode: 'woolworths', price: 3.50, isTrueSpecial: false, memberOnly: false },
+  { productId: 'p52', retailerCode: 'aldi', price: 2.49, isTrueSpecial: false, memberOnly: false },
+  { productId: 'p53', retailerCode: 'coles', price: 3.00, isTrueSpecial: true, memberOnly: false },
+  { productId: 'p53', retailerCode: 'woolworths', price: 4.00, isTrueSpecial: false, memberOnly: false },
+  // Frozen
+  { productId: 'p54', retailerCode: 'coles', price: 6.50, isTrueSpecial: false, memberOnly: false },
+  { productId: 'p54', retailerCode: 'woolworths', price: 5.50, isTrueSpecial: true, memberOnly: false },
+  // Paper
+  { productId: 'p55', retailerCode: 'coles', price: 4.50, isTrueSpecial: false, memberOnly: false },
+  { productId: 'p55', retailerCode: 'woolworths', price: 4.00, isTrueSpecial: true, memberOnly: false },
+  // Pet
+  { productId: 'p56', retailerCode: 'coles', price: 2.00, isTrueSpecial: true, memberOnly: false },
+  { productId: 'p56', retailerCode: 'woolworths', price: 2.50, isTrueSpecial: false, memberOnly: false },
+  { productId: 'p57', retailerCode: 'coles', price: 3.50, isTrueSpecial: false, memberOnly: false },
+  { productId: 'p57', retailerCode: 'woolworths', price: 3.00, isTrueSpecial: true, memberOnly: false },
+  // Baby
+  { productId: 'p58', retailerCode: 'coles', price: 5.50, isTrueSpecial: false, memberOnly: false },
+  { productId: 'p58', retailerCode: 'woolworths', price: 4.50, isTrueSpecial: true, memberOnly: false },
 ];
 
 // ─── Build Offers (matching OptimiserOffer shape) ───
