@@ -1,26 +1,26 @@
 import { LOYALTY_PROGRAMS } from './catalogue.js';
 
 /**
- * Compute the AUD-equivalent rebate a user earns from a transaction at a retailer,
- * given which loyalty programs they hold. Returns 0 if the user holds no
- * applicable program.
+ * Loyalty rebate is only applied when the user has an actual voucher or
+ * member-price discount — NOT as an automatic points-based percentage.
+ *
+ * In reality, Flybuys/Everyday Rewards points are earned passively and
+ * redeemed manually. Auto-calculating a rebate of $0.04 on a $7 item
+ * is misleading. Loyalty value comes from:
+ *   1. Member-only prices (handled via `memberOnly` flag on offers)
+ *   2. Specific vouchers/coupons (not yet implemented — needs real data)
+ *
+ * For now, this returns 0. When we have real voucher data from scrapers,
+ * this function will check the user's active vouchers against items.
  */
 export function loyaltyRebateFor(
-  retailerCode: string,
-  subtotal: number,
-  userMemberships: readonly string[],
+  _retailerCode: string,
+  _subtotal: number,
+  _userMemberships: readonly string[],
 ): { rebate: number; programCode: string | null } {
-  if (subtotal <= 0) return { rebate: 0, programCode: null };
-  const memberships = new Set(userMemberships);
-  let best = { rebate: 0, programCode: null as string | null };
-  for (const program of Object.values(LOYALTY_PROGRAMS)) {
-    if (!program.retailerCodes.includes(retailerCode)) continue;
-    if (!memberships.has(program.code)) continue;
-    const pts = subtotal * program.earnRatePerDollar;
-    const dollars = pts * program.dollarsPerPoint;
-    if (dollars > best.rebate) best = { rebate: dollars, programCode: program.code };
-  }
-  return best;
+  // No automatic rebate — loyalty value comes from member-only prices
+  // and specific vouchers, not passive point accrual.
+  return { rebate: 0, programCode: null };
 }
 
 /**

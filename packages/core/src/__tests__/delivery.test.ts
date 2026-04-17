@@ -65,7 +65,10 @@ describe('delivery recommender', () => {
     expect(deliveryQuote.ineligibleReason).toMatch(/minimum/i);
   });
 
-  it('applies Flybuys loyalty rebate when member', () => {
+  it('does not apply automatic loyalty rebate — only vouchers/member prices count', () => {
+    // Loyalty rebate is 0 unless the user has a specific voucher.
+    // Member-only prices are handled via the memberOnly flag on offers,
+    // not via a percentage rebate on the subtotal.
     const ranked = recommendFulfilment({
       retailerCode: 'coles',
       storeLocation: SOUTH_YARRA,
@@ -76,7 +79,7 @@ describe('delivery recommender', () => {
       timeValuePerHour: 25,
       loyaltyMemberships: ['flybuys'],
     });
-    expect(ranked[0]!.loyaltyRebate).toBeGreaterThan(0);
+    expect(ranked[0]!.loyaltyRebate).toBe(0);
   });
 
   it('distance absolutely factors into total cost when driving (user-asked)', () => {
