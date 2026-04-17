@@ -26,8 +26,8 @@ export function Hero() {
           </p>
           <div className="flex flex-wrap gap-3">
             <Button size="lg" asChild>
-              <Link href="#waitlist">
-                Get early access
+              <Link href="/shop">
+                Start Shopping
                 <ArrowRight className="size-4" aria-hidden />
               </Link>
             </Button>
