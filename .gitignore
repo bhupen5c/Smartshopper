@@ -5,7 +5,9 @@ node_modules/
 # build output
 dist/
 build/
-lib/
+# tsup/tsc build output (but not src/lib/ source dirs)
+/lib/
+packages/*/lib/
 out/
 .next/
 .turbo/

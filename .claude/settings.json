@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(pnpm -r --filter '@smartshopper/core' --filter '@smartshopper/types' test)",
+      "Bash(rm -rf .next)",
+      "Bash(pnpm build:*)",
+      "Bash(git rm:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)"
+    ]
+  }
+}
