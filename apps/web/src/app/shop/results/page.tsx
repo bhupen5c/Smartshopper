@@ -306,7 +306,14 @@ function PlanCard({
                         <div className="text-xs text-gray-400">
                           {q.fee > 0 && <span>Fee: {formatAUD(q.fee)} · </span>}
                           {q.distanceKm > 0 && <span>{q.distanceKm.toFixed(1)}km · </span>}
-                          {q.roundTripMinutes > 0 && <span>{Math.round(q.roundTripMinutes)}min drive</span>}
+                          {q.roundTripMinutes > 0 && (
+                            <span>
+                              {Math.round(q.roundTripMinutes)}min {q.travelCost === 0 && q.distanceKm > 0 ? 'walk' : q.distanceKm > 0 ? 'drive' : ''}
+                            </span>
+                          )}
+                          {q.travelCost === 0 && q.distanceKm > 0 && q.distanceKm <= 2 && (
+                            <span> · No fuel cost</span>
+                          )}
                         </div>
                         {q.explanation && (
                           <div className="text-xs text-gray-500 mt-1">{q.explanation}</div>

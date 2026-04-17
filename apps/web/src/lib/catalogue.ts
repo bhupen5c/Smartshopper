@@ -117,12 +117,17 @@ interface StoreInfo {
   lng: number;
 }
 
-/** Typical distance offset per retailer (degrees, ~1-5 km) */
-const RETAILER_OFFSETS: Record<string, { dlat: number; dlng: number; typicalKm: string }> = {
-  coles:       { dlat: 0.015, dlng: 0.012, typicalKm: '2-3' },
-  woolworths:  { dlat: -0.012, dlng: 0.018, typicalKm: '2-4' },
-  aldi:        { dlat: 0.022, dlng: -0.015, typicalKm: '3-5' },
-  iga:         { dlat: -0.020, dlng: -0.022, typicalKm: '3-6' },
+/**
+ * Typical distance offset per retailer (degrees).
+ * In Australia, Coles and Woolworths are everywhere — most suburbs have
+ * one within 1-2 km. ALDI is sparser (~3-5 km), IGA varies (~2-4 km).
+ * These offsets produce realistic distances via haversine.
+ */
+const RETAILER_OFFSETS: Record<string, { dlat: number; dlng: number }> = {
+  coles:       { dlat: 0.010, dlng: 0.008 },   // ~1.3 km
+  woolworths:  { dlat: -0.007, dlng: 0.010 },   // ~1.2 km
+  aldi:        { dlat: 0.022, dlng: -0.018 },   // ~3 km
+  iga:         { dlat: -0.015, dlng: -0.018 },   // ~2.4 km
 };
 
 /**

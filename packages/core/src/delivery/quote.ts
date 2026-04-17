@@ -91,14 +91,22 @@ export function quoteFulfilment(input: QuoteInput, mode: FulfilmentMode): Quote 
 
   const distanceKm =
     mode === 'delivery' || !input.storeLocation ? 0 : haversineKm(input.origin, input.storeLocation);
-  const drivingMinutesOneWay = mode === 'delivery' ? 0 : estimateDrivingMinutes(distanceKm);
-  const roundTripMinutes = drivingMinutesOneWay * 2;
+
+  // Walking threshold: under 2km → walk (no fuel cost, ~12 min/km walking pace)
+  const isWalkable = distanceKm > 0 && distanceKm <= 2;
+  const drivingMinutesOneWay = mode === 'delivery' ? 0 : isWalkable ? 0 : estimateDrivingMinutes(distanceKm);
+  const walkingMinutesOneWay = isWalkable ? distanceKm * 12 : 0;
+  const roundTripMinutes = isWalkable ? walkingMinutesOneWay * 2 : drivingMinutesOneWay * 2;
 
   const inStoreMinutes =
     mode === 'in_store_pickup' ? defaultInStoreMinutes : mode === 'click_and_collect' ? 8 : mode === 'direct_to_boot' ? 3 : 0;
 
-  const travelCost = mode === 'delivery' ? 0 : distanceKm * 2 * input.fuelCostPerKm;
-  const timeCost = ((roundTripMinutes + inStoreMinutes) / 60) * input.timeValuePerHour;
+  // No fuel cost when walking
+  const travelCost = mode === 'delivery' || isWalkable ? 0 : distanceKm * 2 * input.fuelCostPerKm;
+  // Walking time is valued at a lower rate (leisure vs productive time)
+  const walkingTimeDiscount = 0.3; // value walking time at 30% of hourly rate
+  const effectiveTimeRate = isWalkable ? input.timeValuePerHour * walkingTimeDiscount : input.timeValuePerHour;
+  const timeCost = ((roundTripMinutes + inStoreMinutes) / 60) * effectiveTimeRate;
 
   // Fee / eligibility per mode.
   let fee = 0;
@@ -155,6 +163,8 @@ export function quoteFulfilment(input: QuoteInput, mode: FulfilmentMode): Quote 
       freeThreshold: input.policy.freeDeliveryThreshold,
       eligible,
       ineligibleReason,
+      isWalkable,
+      walkingMinutes: Math.round(walkingMinutesOneWay * 2),
     }),
     eligible,
     ineligibleReason,
@@ -172,6 +182,8 @@ function buildExplanation(opts: {
   freeThreshold: number | null;
   eligible: boolean;
   ineligibleReason: string | null;
+  isWalkable: boolean;
+  walkingMinutes: number;
 }): string {
   if (!opts.eligible) return opts.ineligibleReason ?? 'Not eligible.';
   const parts: string[] = [];
@@ -187,6 +199,12 @@ function buildExplanation(opts: {
     } else {
       parts.push(`Delivery fee is $${opts.fee.toFixed(2)}.`);
     }
+  } else if (opts.isWalkable) {
+    parts.push(
+      `${opts.mode.replace(/_/g, ' ')} — only ${opts.distanceKm.toFixed(
+        1,
+      )} km away, walkable in ~${opts.walkingMinutes} min. No fuel cost.`,
+    );
   } else {
     parts.push(
       `${opts.mode.replace(/_/g, ' ')} — ${opts.distanceKm.toFixed(
