@@ -1,0 +1,26 @@
+{
+  "name": "smartshopper",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Australian supermarket price intelligence — specials tracking, price history analysis, basket optimisation, delivery-vs-pickup recommender.",
+  "packageManager": "pnpm@9.15.0",
+  "engines": {
+    "node": ">=20.11 <25"
+  },
+  "scripts": {
+    "build": "turbo run build",
+    "dev": "turbo run dev --parallel",
+    "lint": "turbo run lint",
+    "test": "turbo run test",
+    "typecheck": "turbo run typecheck",
+    "clean": "turbo run clean && rm -rf node_modules .turbo",
+    "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md,yml,yaml}\" --cache",
+    "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,json,md,yml,yaml}\" --cache"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.5",
+    "prettier": "^3.4.2",
+    "turbo": "^2.3.3",
+    "typescript": "^5.7.2"
+  }
+}

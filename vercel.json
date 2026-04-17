@@ -1,0 +1,8 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": "nextjs",
+  "installCommand": "pnpm install --frozen-lockfile=false",
+  "buildCommand": "pnpm turbo run build --filter=@smartshopper/web...",
+  "outputDirectory": "apps/web/.next",
+  "ignoreCommand": "git diff --quiet HEAD^ HEAD -- apps/web packages turbo.json pnpm-lock.yaml package.json; [ $? -eq 0 ] && exit 0 || exit 1"
+}

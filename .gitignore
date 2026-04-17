@@ -1,0 +1,62 @@
+# dependencies
+node_modules/
+.pnpm-store/
+
+# build output
+dist/
+build/
+lib/
+out/
+.next/
+.turbo/
+*.tsbuildinfo
+
+# envs
+.env
+.env.local
+.env.*.local
+!.env.example
+
+# logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# testing
+coverage/
+.nyc_output/
+
+# editors & OS
+.DS_Store
+.idea/
+.vscode/*
+!.vscode/settings.example.json
+!.vscode/extensions.json
+Thumbs.db
+
+# caches
+.cache/
+.eslintcache
+.prettiercache
+
+# expo
+.expo/
+expo-env.d.ts
+web-build/
+
+# native
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+*.orig.*
+
+# prisma
+packages/db/prisma/*.db
+packages/db/prisma/*.db-journal
+
+# secrets
+*.pem

@@ -1,0 +1,52 @@
+{
+  "name": "@smartshopper/core",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    },
+    "./pricing": {
+      "types": "./dist/pricing/index.d.ts",
+      "import": "./dist/pricing/index.js"
+    },
+    "./basket": {
+      "types": "./dist/basket/index.d.ts",
+      "import": "./dist/basket/index.js"
+    },
+    "./delivery": {
+      "types": "./dist/delivery/index.d.ts",
+      "import": "./dist/delivery/index.js"
+    },
+    "./loyalty": {
+      "types": "./dist/loyalty/index.d.ts",
+      "import": "./dist/loyalty/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsup src/index.ts src/pricing/index.ts src/basket/index.ts src/delivery/index.ts src/loyalty/index.ts --format esm,cjs --dts --clean",
+    "dev": "tsup src/index.ts src/pricing/index.ts src/basket/index.ts src/delivery/index.ts src/loyalty/index.ts --format esm,cjs --dts --watch",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "lint": "eslint \"src/**/*.ts\"",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "bench": "vitest bench --run",
+    "clean": "rm -rf dist .turbo"
+  },
+  "dependencies": {
+    "@smartshopper/types": "workspace:*"
+  },
+  "devDependencies": {
+    "@smartshopper/config": "workspace:*",
+    "eslint": "^9.17.0",
+    "tsup": "^8.3.5",
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.8"
+  }
+}

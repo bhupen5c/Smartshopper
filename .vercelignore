@@ -1,0 +1,7 @@
+# Vercel only needs web-facing packages. Skip everything else to keep builds fast.
+apps/mobile/
+apps/api/
+apps/admin/
+services/
+infra/
+packages/db/node_modules
