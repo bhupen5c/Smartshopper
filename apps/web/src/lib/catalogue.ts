@@ -113,9 +113,14 @@ const STORES: StoreInfo[] = [
   { storeId: 'iga-frem', retailerCode: 'iga', suburb: 'Fremantle', lat: -32.0569, lng: 115.7439 },
   // Canberra / ACT
   { storeId: 'coles-bell', retailerCode: 'coles', suburb: 'Belconnen', lat: -35.2380, lng: 149.0660 },
+  { storeId: 'coles-kipp', retailerCode: 'coles', suburb: 'Kippax', lat: -35.2300, lng: 149.0340 },
+  { storeId: 'ww-bell', retailerCode: 'woolworths', suburb: 'Belconnen', lat: -35.2390, lng: 149.0650 },
+  { storeId: 'ww-kipp', retailerCode: 'woolworths', suburb: 'Kippax', lat: -35.2285, lng: 149.0330 },
   { storeId: 'ww-woden', retailerCode: 'woolworths', suburb: 'Woden', lat: -35.3460, lng: 149.0870 },
   { storeId: 'aldi-kipp', retailerCode: 'aldi', suburb: 'Kippax', lat: -35.2290, lng: 149.0320 },
+  { storeId: 'aldi-bell', retailerCode: 'aldi', suburb: 'Belconnen', lat: -35.2400, lng: 149.0680 },
   { storeId: 'iga-manuka', retailerCode: 'iga', suburb: 'Manuka', lat: -35.3180, lng: 149.1380 },
+  { storeId: 'iga-charno', retailerCode: 'iga', suburb: 'Charnwood', lat: -35.2050, lng: 149.0340 },
 ];
 
 // ─── Price Matrix (productId → retailer → price info) ───
@@ -155,9 +160,13 @@ const PRICE_MATRIX: PriceEntry[] = [
   { productId: 'p07', retailerCode: 'aldi', price: 4.99, isTrueSpecial: false, memberOnly: false },
   { productId: 'p08', retailerCode: 'coles', price: 6.50, isTrueSpecial: false, memberOnly: false },
   { productId: 'p08', retailerCode: 'woolworths', price: 6.50, isTrueSpecial: false, memberOnly: false },
+  { productId: 'p05', retailerCode: 'aldi', price: 3.29, isTrueSpecial: false, memberOnly: false },
+  { productId: 'p06', retailerCode: 'aldi', price: 4.49, isTrueSpecial: false, memberOnly: false },
+  { productId: 'p08', retailerCode: 'aldi', price: 5.99, isTrueSpecial: false, memberOnly: false },
   // Biscuits & Snacks
   { productId: 'p09', retailerCode: 'coles', price: 2.75, isTrueSpecial: true, memberOnly: false },
   { productId: 'p09', retailerCode: 'woolworths', price: 3.65, isTrueSpecial: false, memberOnly: false },
+  { productId: 'p09', retailerCode: 'aldi', price: 3.49, isTrueSpecial: false, memberOnly: false },
   { productId: 'p09', retailerCode: 'iga', price: 5.50, isTrueSpecial: false, memberOnly: false },
   { productId: 'p10', retailerCode: 'coles', price: 2.00, isTrueSpecial: true, memberOnly: false },
   { productId: 'p10', retailerCode: 'woolworths', price: 2.00, isTrueSpecial: true, memberOnly: false },
