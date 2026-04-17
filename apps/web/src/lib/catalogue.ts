@@ -111,8 +111,7 @@ export interface StoreInfo {
   storeId: string;
   retailerCode: string;
   storeName: string;
-  address: string;
-  suburb: string;
+  distanceLabel: string;
   hours: string;
   lat: number;
   lng: number;
@@ -123,8 +122,6 @@ interface RetailerTemplate {
   /** Base distance in degrees (~km/111). Varies per postcode. */
   baseDist: number;
   hours: string;
-  /** Address suffix patterns */
-  addressTemplates: string[];
 }
 
 const RETAILER_TEMPLATES: Record<string, RetailerTemplate> = {
@@ -132,25 +129,21 @@ const RETAILER_TEMPLATES: Record<string, RetailerTemplate> = {
     namePrefix: 'Coles',
     baseDist: 0.012,
     hours: 'Mon-Fri 6am-10pm · Sat-Sun 7am-10pm',
-    addressTemplates: ['Shopping Centre', 'Mall', 'Plaza', 'Village'],
   },
   woolworths: {
     namePrefix: 'Woolworths',
     baseDist: 0.011,
     hours: 'Mon-Fri 6am-10pm · Sat 7am-10pm · Sun 8am-9pm',
-    addressTemplates: ['Metro', 'Shopping Centre', 'Marketplace', 'Town Centre'],
   },
   aldi: {
     namePrefix: 'ALDI',
     baseDist: 0.025,
     hours: 'Mon-Wed 8:30am-7pm · Thu-Fri 8:30am-8pm · Sat 8am-5pm · Sun 11am-5pm',
-    addressTemplates: ['Store', 'Supermarket'],
   },
   iga: {
     namePrefix: 'IGA',
     baseDist: 0.018,
     hours: 'Mon-Fri 7am-9pm · Sat-Sun 8am-8pm',
-    addressTemplates: ['Local', 'Supermarket', 'Fresh'],
   },
 };
 
@@ -188,20 +181,14 @@ function generateNearbyStores(origin: { lat: number; lng: number }, postcode: st
     const dlat = dist * Math.cos(angle);
     const dlng = dist * Math.sin(angle);
 
-    // Pick address template based on seed
-    const addrIdx = Math.floor(seed * template.addressTemplates.length);
-    const addrSuffix = template.addressTemplates[addrIdx] ?? template.addressTemplates[0]!;
-
-    // Use postcode seed to generate a suburb-like name
-    // (actual suburb comes from ShopContext, not re-looked-up here)
-    const suburbName = _suburbForStores ?? 'Local';
+    // Calculate actual distance for the label
+    const actualDistKm = haversineKm(origin, { lat: origin.lat + dlat, lng: origin.lng + dlng });
 
     stores.push({
       storeId: `${retailerCode}-${postcode}`,
       retailerCode,
-      storeName: `${template.namePrefix} ${suburbName} ${addrSuffix}`,
-      address: `${Math.floor(seed * 200 + 1)} ${suburbName} Rd, ${suburbName}`,
-      suburb: suburbName,
+      storeName: `Nearest ${template.namePrefix}`,
+      distanceLabel: `~${actualDistKm.toFixed(1)} km from you`,
       hours: template.hours,
       lat: origin.lat + dlat,
       lng: origin.lng + dlng,
@@ -213,15 +200,9 @@ function generateNearbyStores(origin: { lat: number; lng: number }, postcode: st
 
 /** Global store cache so results page can look up store details by ID */
 let _lastStores: StoreInfo[] = [];
-let _suburbForStores: string = 'Local';
 
 export function getGeneratedStores(): StoreInfo[] {
   return _lastStores;
-}
-
-/** Set the suburb name for store generation (called from results page) */
-export function setSuburbForStores(suburb: string) {
-  _suburbForStores = suburb;
 }
 
 // ─── Price Matrix (productId → retailer → price info) ───

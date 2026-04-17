@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { ArrowLeft, ShoppingCart, Truck, MapPin, Award, AlertTriangle, Star, Clock } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useShop } from '@/lib/shop-context';
-import { buildOffers, CATALOGUE_PRODUCTS, getGeneratedStores, setSuburbForStores, type StoreInfo } from '@/lib/catalogue';
+import { buildOffers, CATALOGUE_PRODUCTS, getGeneratedStores, type StoreInfo } from '@/lib/catalogue';
 import { formatAUD } from '@/lib/utils';
 import { optimiseBasket } from '@smartshopper/core/basket';
 import { recommendFulfilment } from '@smartshopper/core/delivery';
@@ -45,7 +45,6 @@ export default function ResultsPage() {
 
     if (resolvedItems.length === 0) return null;
 
-    setSuburbForStores(suburb);
     const offers = buildOffers(origin, postcode);
 
     const plans = optimiseBasket({
@@ -239,7 +238,7 @@ function PlanCard({
                 <div className="font-medium text-gray-900">{store.storeName}</div>
                 <div className="flex items-center gap-1 text-gray-500 mt-0.5">
                   <MapPin className="h-3 w-3 shrink-0" />
-                  <span className="truncate">{store.address}</span>
+                  <span>{store.distanceLabel}</span>
                 </div>
                 <div className="flex items-center gap-1 text-gray-400 mt-0.5">
                   <Clock className="h-3 w-3 shrink-0" />
