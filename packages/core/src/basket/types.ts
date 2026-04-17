@@ -63,6 +63,14 @@ export interface OptimiserLine {
   memberOnly: boolean;
 }
 
+export interface OptimiserLineAlternative {
+  listItemId: string;
+  cheaperRetailerCode: string;
+  cheaperPrice: number;
+  /** How much this line would cost less at the cheaper retailer. */
+  savingsPerUnit: number;
+}
+
 export interface OptimiserPlan {
   kind: 'single_retailer' | 'multi_retailer' | 'delivery_only';
   /** Lines, one per shopping-list item. */
@@ -81,4 +89,15 @@ export interface OptimiserPlan {
   /** Items we could not source from any allowed retailer. */
   missingItemIds: string[];
   explanation: string;
+  /**
+   * How much this plan saves vs. the best single-retailer plan.
+   * Positive = this plan is cheaper. Null on the single-retailer plan itself.
+   */
+  savingsVsBestSingle?: number | null;
+  /**
+   * Per-line annotations flagging items that would be cheaper at another
+   * retailer. Used by the UI to show "cheaper elsewhere" hints so users
+   * can see the math behind splitting or staying put.
+   */
+  lineAlternatives?: OptimiserLineAlternative[];
 }

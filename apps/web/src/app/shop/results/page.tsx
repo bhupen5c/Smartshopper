@@ -42,18 +42,53 @@ export default function ResultsPage() {
   const results = useMemo(() => {
     if (!origin || items.length === 0) return null;
 
-    const resolvedItems = items
-      .filter((i) => i.productId)
-      .map((i) => ({
-        listItemId: i.id,
-        productId: i.productId!,
-        productName: i.productName ?? i.query,
-        quantity: i.quantity,
-      }));
+    const baseOffers = buildOffers(origin, postcode);
+
+    // Build the items + offers lists together so that generic items
+    // ("Any haloumi") expand to offers for every matching branded product.
+    // Each generic list item gets a synthetic productId; the offer list
+    // maps that productId to every retailer+brand that satisfies it, so
+    // the optimizer picks the cheapest.
+    const resolvedItems: { listItemId: string; productId: string; productName: string; quantity: number }[] = [];
+    const extraOffers: typeof baseOffers = [];
+
+    for (const i of items) {
+      if (i.genericType) {
+        // Collect every product with this genericType.
+        const matchingProducts = CATALOGUE_PRODUCTS.filter((p) => p.genericType === i.genericType);
+        if (matchingProducts.length === 0) continue;
+        const matchingIds = new Set(matchingProducts.map((p) => p.id));
+
+        // Synthetic productId for this list item.
+        const syntheticId = `generic:${i.id}`;
+        resolvedItems.push({
+          listItemId: i.id,
+          productId: syntheticId,
+          productName: i.productName ?? `Any ${i.genericType}`,
+          quantity: i.quantity,
+        });
+
+        // Copy every real offer for a matching branded product, but
+        // relabel its productId to the synthetic one so the optimizer
+        // treats them as interchangeable for this list item.
+        for (const offer of baseOffers) {
+          if (matchingIds.has(offer.productId)) {
+            extraOffers.push({ ...offer, productId: syntheticId });
+          }
+        }
+      } else if (i.productId) {
+        resolvedItems.push({
+          listItemId: i.id,
+          productId: i.productId,
+          productName: i.productName ?? i.query,
+          quantity: i.quantity,
+        });
+      }
+    }
 
     if (resolvedItems.length === 0) return null;
 
-    const offers = buildOffers(origin, postcode);
+    const offers = [...baseOffers, ...extraOffers];
 
     const plans = optimiseBasket({
       items: resolvedItems,
@@ -130,7 +165,11 @@ export default function ResultsPage() {
   }
 
   const { plans, fulfilmentByRetailer } = results;
-  const unresolvedItems = items.filter((i) => !i.productId);
+  const unresolvedItems = items.filter((i) => !i.productId && !i.genericType);
+  const bestPlan = plans[0]!;
+  const bestSinglePlan = plans.find((p) => p.kind === 'single_retailer');
+  const multiPlan = plans.find((p) => p.kind === 'multi_retailer');
+  const WORTH_SPLIT_THRESHOLD = 3.0; // dollars
 
   return (
     <div className="max-w-3xl mx-auto space-y-6">
@@ -139,7 +178,7 @@ export default function ResultsPage() {
           <h1 className="text-2xl font-bold text-gray-900">Your Best Deals</h1>
           <p className="text-sm text-gray-500 mt-1">
             <MapPin className="h-3 w-3 inline mr-1" />
-            {suburb} ({postcode}) · {items.filter((i) => i.productId).length} items compared
+            {suburb} ({postcode}) · {items.filter((i) => i.productId || i.genericType).length} items compared
           </p>
         </div>
         <button
@@ -159,6 +198,57 @@ export default function ResultsPage() {
             {unresolvedItems.map((i) => i.query).join(', ')}
           </div>
         </div>
+      )}
+
+      {/* Savings breakdown — show the math for bigger lists */}
+      {bestSinglePlan && multiPlan && bestPlan.lines.length >= 3 && (
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4 }}
+          className="p-4 bg-gradient-to-br from-emerald-50 to-white border border-emerald-200 rounded-xl"
+        >
+          <div className="flex items-center gap-2 mb-3">
+            <Star className="h-4 w-4 text-emerald-600" />
+            <h3 className="text-sm font-semibold text-gray-900">Savings breakdown</h3>
+          </div>
+          <div className="grid grid-cols-2 gap-3 text-sm">
+            <div className="p-3 bg-white rounded-lg border border-gray-100">
+              <div className="text-xs text-gray-500 mb-1">Stay at one store</div>
+              <div className="text-xl font-bold text-gray-900">
+                {formatAUD(bestSinglePlan.grandTotal)}
+              </div>
+              <div className="text-xs text-gray-400 mt-0.5">
+                {RETAILER_NAMES[bestSinglePlan.retailerCodes[0]!] ?? bestSinglePlan.retailerCodes[0]}
+              </div>
+            </div>
+            <div className={`p-3 rounded-lg border ${
+              (multiPlan.savingsVsBestSingle ?? 0) >= WORTH_SPLIT_THRESHOLD
+                ? 'bg-emerald-50 border-emerald-300'
+                : 'bg-gray-50 border-gray-200'
+            }`}>
+              <div className="text-xs text-gray-500 mb-1">Split across {multiPlan.retailerCodes.length} stores</div>
+              <div className="text-xl font-bold text-gray-900">
+                {formatAUD(multiPlan.grandTotal)}
+              </div>
+              <div className="text-xs mt-0.5">
+                {(multiPlan.savingsVsBestSingle ?? 0) >= WORTH_SPLIT_THRESHOLD ? (
+                  <span className="text-emerald-700 font-medium">
+                    Saves {formatAUD(multiPlan.savingsVsBestSingle!)} — worth it
+                  </span>
+                ) : (multiPlan.savingsVsBestSingle ?? 0) > 0 ? (
+                  <span className="text-gray-500">
+                    Only saves {formatAUD(multiPlan.savingsVsBestSingle!)} — probably not worth the extra trip
+                  </span>
+                ) : (
+                  <span className="text-gray-400">
+                    Costs more once travel is added
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
+        </motion.div>
       )}
 
       {/* Plan cards */}
@@ -265,31 +355,45 @@ function PlanCard({
 
       {/* Line items */}
       <div className="divide-y divide-gray-100">
-        {plan.lines.map((line) => (
-          <div key={line.listItemId} className="px-5 py-2.5 flex items-center justify-between text-sm">
-            <div className="flex items-center gap-2 min-w-0">
-              <span className="text-gray-900 truncate">{line.productName}</span>
-              {line.quantity > 1 && <span className="text-gray-400 text-xs">×{line.quantity}</span>}
-              {line.isTrueSpecial && (
-                <span className="flex items-center gap-0.5 px-1.5 py-0.5 bg-emerald-50 text-emerald-600 text-xs rounded-full shrink-0">
-                  <Star className="h-2.5 w-2.5" />
-                  Deal
-                </span>
-              )}
-              {line.memberOnly && (
-                <span className="px-1.5 py-0.5 bg-purple-50 text-purple-600 text-xs rounded-full shrink-0">
-                  Members
-                </span>
+        {plan.lines.map((line) => {
+          const alt = plan.lineAlternatives?.find((a) => a.listItemId === line.listItemId);
+          return (
+            <div key={line.listItemId} className="px-5 py-2.5 text-sm">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 min-w-0">
+                  <span className="text-gray-900 truncate">{line.productName}</span>
+                  {line.quantity > 1 && <span className="text-gray-400 text-xs">×{line.quantity}</span>}
+                  {line.isTrueSpecial && (
+                    <span className="flex items-center gap-0.5 px-1.5 py-0.5 bg-emerald-50 text-emerald-600 text-xs rounded-full shrink-0">
+                      <Star className="h-2.5 w-2.5" />
+                      Deal
+                    </span>
+                  )}
+                  {line.memberOnly && (
+                    <span className="px-1.5 py-0.5 bg-purple-50 text-purple-600 text-xs rounded-full shrink-0">
+                      Members
+                    </span>
+                  )}
+                </div>
+                <div className="flex items-center gap-3 shrink-0 ml-2">
+                  <span className={`px-1.5 py-0.5 rounded text-xs ${RETAILER_COLORS[line.retailerCode] ?? 'bg-gray-100 text-gray-600'}`}>
+                    {RETAILER_NAMES[line.retailerCode] ?? line.retailerCode}
+                  </span>
+                  <span className="font-mono text-gray-700 w-16 text-right">{formatAUD(line.lineTotal)}</span>
+                </div>
+              </div>
+              {alt && (
+                <div className="mt-1 ml-0.5 text-[11px] text-amber-600 flex items-center gap-1">
+                  <span>↓</span>
+                  <span>
+                    {formatAUD(alt.savingsPerUnit)} cheaper at {RETAILER_NAMES[alt.cheaperRetailerCode] ?? alt.cheaperRetailerCode}
+                    {' '}({formatAUD(alt.cheaperPrice)})
+                  </span>
+                </div>
               )}
             </div>
-            <div className="flex items-center gap-3 shrink-0 ml-2">
-              <span className={`px-1.5 py-0.5 rounded text-xs ${RETAILER_COLORS[line.retailerCode] ?? 'bg-gray-100 text-gray-600'}`}>
-                {RETAILER_NAMES[line.retailerCode] ?? line.retailerCode}
-              </span>
-              <span className="font-mono text-gray-700 w-16 text-right">{formatAUD(line.lineTotal)}</span>
-            </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
       {/* Cost breakdown */}

@@ -9,6 +9,19 @@ import { CATALOGUE_PRODUCTS } from '@/lib/catalogue';
 import { fuzzyMatch } from '@/lib/fuzzy-match';
 import { matchIntent, findProductsByKeywords, type IntentMatch, type ProbeOption } from '@/lib/smart-search';
 
+function displayNameForGenericType(
+  genericType: string,
+  sample: { name: string; category: string },
+): string {
+  // Produce a friendly "Any X" label. If we have a good alias, use it;
+  // otherwise fall back to the first word of the category.
+  const titled = genericType
+    .replace(/_\d+[a-z]*$/i, '') // strip size suffixes like _2l, _500g
+    .replace(/_/g, ' ')
+    .replace(/\b\w/g, (c) => c.toUpperCase());
+  return `Any ${titled}`;
+}
+
 export default function ShopListPage() {
   const {
     items, addItem, removeItem, updateQuantity,
@@ -33,11 +46,30 @@ export default function ShopListPage() {
 
   // Determine what to show in dropdown
   const productMatches = query.length >= 2
-    ? fuzzyMatch(query, CATALOGUE_PRODUCTS, 6)
+    ? fuzzyMatch(query, CATALOGUE_PRODUCTS, 8)
     : [];
   const intentMatch = query.length >= 3 && productMatches.length <= 1
     ? matchIntent(query)
     : null;
+
+  // Collapse results by genericType: if 2+ matches share a genericType,
+  // show a single "Any X — cheapest brand" row at the top.
+  const genericGroups = new Map<string, typeof productMatches>();
+  for (const m of productMatches) {
+    const t = m.item.genericType;
+    if (!t) continue;
+    const group = genericGroups.get(t) ?? [];
+    group.push(m);
+    genericGroups.set(t, group);
+  }
+  const genericCandidates = Array.from(genericGroups.entries())
+    .filter(([, group]) => group.length >= 2)
+    .map(([genericType, group]) => ({
+      genericType,
+      label: displayNameForGenericType(genericType, group[0]!.item),
+      brandCount: group.length,
+      sampleName: group[0]!.item.name,
+    }));
 
   function handleAddProduct(product: (typeof CATALOGUE_PRODUCTS)[0]) {
     const existing = items.find((i) => i.productId === product.id);
@@ -45,6 +77,25 @@ export default function ShopListPage() {
       updateQuantity(existing.id, existing.quantity + 1);
     } else {
       addItem({ query: product.name, productId: product.id, productName: product.name, quantity: 1 });
+    }
+    setQuery('');
+    setShowSuggestions(false);
+    setActiveProbe(null);
+    setProbeProducts([]);
+  }
+
+  function handleAddGeneric(genericType: string, label: string) {
+    const existing = items.find((i) => i.genericType === genericType);
+    if (existing) {
+      updateQuantity(existing.id, existing.quantity + 1);
+    } else {
+      addItem({
+        query: label,
+        productId: null,
+        productName: label,
+        genericType,
+        quantity: 1,
+      });
     }
     setQuery('');
     setShowSuggestions(false);
@@ -143,12 +194,38 @@ export default function ShopListPage() {
               </div>
             )}
 
+            {/* Generic "Any X" rows — shown when 2+ brands match the same genericType */}
+            {genericCandidates.length > 0 && (
+              <>
+                <div className="px-4 py-1.5 text-[11px] text-emerald-700 uppercase tracking-wide bg-emerald-50/60 font-semibold">
+                  Cheapest across brands
+                </div>
+                {genericCandidates.map((gc) => (
+                  <button
+                    key={gc.genericType}
+                    onClick={() => handleAddGeneric(gc.genericType, gc.label)}
+                    className="w-full text-left px-4 py-3 hover:bg-emerald-50/50 flex items-center justify-between border-b border-gray-100"
+                  >
+                    <div>
+                      <div className="text-sm font-semibold text-emerald-700">
+                        {gc.label}
+                      </div>
+                      <div className="text-xs text-gray-500">
+                        Pick the cheapest of {gc.brandCount} brands across all retailers
+                      </div>
+                    </div>
+                    <Plus className="h-4 w-4 text-emerald-600 shrink-0" />
+                  </button>
+                ))}
+              </>
+            )}
+
             {/* Direct product matches */}
             {productMatches.length > 0 && (
               <>
-                {intentMatch && (
+                {(intentMatch || genericCandidates.length > 0) && (
                   <div className="px-4 py-1.5 text-xs text-gray-400 uppercase tracking-wide bg-gray-50">
-                    Or add a specific product
+                    Or pick a specific brand
                   </div>
                 )}
                 {productMatches.map(({ item }) => (
@@ -234,9 +311,11 @@ export default function ShopListPage() {
                 <div className="text-sm font-medium text-gray-900 truncate">
                   {item.productName ?? item.query}
                 </div>
-                {!item.productId && (
+                {item.genericType ? (
+                  <div className="text-xs text-emerald-600">Any brand · cheapest across retailers</div>
+                ) : !item.productId ? (
                   <div className="text-xs text-amber-500">Not in catalogue</div>
-                )}
+                ) : null}
               </div>
               <div className="flex items-center gap-3 shrink-0 ml-4">
                 <div className="flex items-center gap-1 border border-gray-200 rounded-lg">
@@ -350,13 +429,13 @@ export default function ShopListPage() {
       </div>
 
       {/* CTA */}
-      {items.filter((i) => i.productId).length > 0 && (
+      {items.filter((i) => i.productId || i.genericType).length > 0 && (
         <button
           onClick={() => router.push('/shop/results')}
           className="w-full py-3.5 bg-emerald-600 hover:bg-emerald-700 text-white font-medium rounded-xl transition-colors flex items-center justify-center gap-2"
         >
           <Zap className="h-4 w-4" />
-          Find Best Deals ({items.filter((i) => i.productId).length} items)
+          Find Best Deals ({items.filter((i) => i.productId || i.genericType).length} items)
         </button>
       )}
     </div>

@@ -8,6 +8,7 @@ import type {
   OptimiserPlan,
   OptimiserPreferences,
   OptimiserLine,
+  OptimiserLineAlternative,
 } from './types.js';
 
 interface OptimiseInput {
@@ -73,7 +74,46 @@ export function optimiseBasket({ items, offers, preferences }: OptimiseInput): O
     const distB = (b as PlanWithMeta)._distanceKm ?? 999;
     return distA - distB;
   });
+
+  // Annotate each plan with savings-vs-best-single-retailer + per-line
+  // "cheaper elsewhere" hints so the UI can show the math.
+  const bestSingle = plans.find((p) => p.kind === 'single_retailer');
+  for (const plan of plans) {
+    plan.savingsVsBestSingle =
+      bestSingle && plan !== bestSingle ? bestSingle.grandTotal - plan.grandTotal : null;
+    plan.lineAlternatives = computeLineAlternatives(plan.lines, offersForAllowedRetailer);
+  }
+
   return plans;
+}
+
+/**
+ * For each line in a plan, find the single cheapest offer for the same
+ * productId across all retailers. If it's cheaper than the line's current
+ * unit price, flag it. Surfaces "this could be $X cheaper at Y" tips.
+ */
+function computeLineAlternatives(
+  lines: readonly OptimiserLine[],
+  offers: readonly OptimiserOffer[],
+): OptimiserLineAlternative[] {
+  const alternatives: OptimiserLineAlternative[] = [];
+  for (const line of lines) {
+    let cheapest: OptimiserOffer | null = null;
+    for (const offer of offers) {
+      if (offer.productId !== line.productId) continue;
+      if (offer.retailerCode === line.retailerCode) continue;
+      if (!cheapest || offer.price < cheapest.price) cheapest = offer;
+    }
+    if (cheapest && cheapest.price < line.unitPrice - 0.01) {
+      alternatives.push({
+        listItemId: line.listItemId,
+        cheaperRetailerCode: cheapest.retailerCode,
+        cheaperPrice: cheapest.price,
+        savingsPerUnit: Math.round((line.unitPrice - cheapest.price) * 100) / 100,
+      });
+    }
+  }
+  return alternatives;
 }
 
 // ──────────────────────────────────────────────────────────────────────────────

@@ -10,6 +10,13 @@ export interface ShopItem {
   query: string;
   productId: string | null;
   productName: string | null;
+  /**
+   * If set, this list item is "any product of this type" — e.g. "any
+   * halloumi", "any shampoo". The results page will build offers for
+   * every branded product with this genericType at every retailer, and
+   * the optimizer picks the cheapest.
+   */
+  genericType?: string;
   quantity: number;
 }
 
