@@ -103,45 +103,125 @@ export const CATALOGUE_PRODUCTS: CatalogueProduct[] = [
 ];
 
 // ─── Dynamic Store Generation ───
-// Instead of hardcoding stores per city, we generate a realistic nearby
-// store for each retailer based on the user's location. In Australia,
-// Coles and Woolworths are typically within 2-4 km of any suburban home,
-// ALDI within 3-6 km, and IGA within 2-5 km. We simulate this with small
-// deterministic offsets so the optimizer always has stores to compare.
+// Generates realistic nearby stores with names, addresses, and opening
+// hours. Distances vary by postcode (using a hash of the postcode digits)
+// so different locations get different "nearest" retailers.
 
-interface StoreInfo {
+export interface StoreInfo {
   storeId: string;
   retailerCode: string;
+  storeName: string;
+  address: string;
   suburb: string;
+  hours: string;
   lat: number;
   lng: number;
 }
 
-/**
- * Typical distance offset per retailer (degrees).
- * In Australia, Coles and Woolworths are everywhere — most suburbs have
- * one within 1-2 km. ALDI is sparser (~3-5 km), IGA varies (~2-4 km).
- * These offsets produce realistic distances via haversine.
- */
-const RETAILER_OFFSETS: Record<string, { dlat: number; dlng: number }> = {
-  coles:       { dlat: 0.010, dlng: 0.008 },   // ~1.3 km
-  woolworths:  { dlat: -0.007, dlng: 0.010 },   // ~1.2 km
-  aldi:        { dlat: 0.022, dlng: -0.018 },   // ~3 km
-  iga:         { dlat: -0.015, dlng: -0.018 },   // ~2.4 km
+interface RetailerTemplate {
+  namePrefix: string;
+  /** Base distance in degrees (~km/111). Varies per postcode. */
+  baseDist: number;
+  hours: string;
+  /** Address suffix patterns */
+  addressTemplates: string[];
+}
+
+const RETAILER_TEMPLATES: Record<string, RetailerTemplate> = {
+  coles: {
+    namePrefix: 'Coles',
+    baseDist: 0.012,
+    hours: 'Mon-Fri 6am-10pm · Sat-Sun 7am-10pm',
+    addressTemplates: ['Shopping Centre', 'Mall', 'Plaza', 'Village'],
+  },
+  woolworths: {
+    namePrefix: 'Woolworths',
+    baseDist: 0.011,
+    hours: 'Mon-Fri 6am-10pm · Sat 7am-10pm · Sun 8am-9pm',
+    addressTemplates: ['Metro', 'Shopping Centre', 'Marketplace', 'Town Centre'],
+  },
+  aldi: {
+    namePrefix: 'ALDI',
+    baseDist: 0.025,
+    hours: 'Mon-Wed 8:30am-7pm · Thu-Fri 8:30am-8pm · Sat 8am-5pm · Sun 11am-5pm',
+    addressTemplates: ['Store', 'Supermarket'],
+  },
+  iga: {
+    namePrefix: 'IGA',
+    baseDist: 0.018,
+    hours: 'Mon-Fri 7am-9pm · Sat-Sun 8am-8pm',
+    addressTemplates: ['Local', 'Supermarket', 'Fresh'],
+  },
 };
 
 /**
- * Generate a nearby store for each retailer, relative to the user's origin.
- * Uses deterministic offsets so results are stable across page refreshes.
+ * Simple hash from a string → number between 0 and 1.
+ * Used to vary store distances deterministically per postcode.
  */
-function generateNearbyStores(origin: { lat: number; lng: number }): StoreInfo[] {
-  return Object.entries(RETAILER_OFFSETS).map(([retailerCode, offset]) => ({
-    storeId: `${retailerCode}-local`,
-    retailerCode,
-    suburb: 'Nearby',
-    lat: origin.lat + offset.dlat,
-    lng: origin.lng + offset.dlng,
-  }));
+function simpleHash(s: string): number {
+  let h = 0;
+  for (let i = 0; i < s.length; i++) {
+    h = ((h << 5) - h + s.charCodeAt(i)) | 0;
+  }
+  return Math.abs(h % 1000) / 1000;
+}
+
+/**
+ * Generate nearby stores for each retailer based on user's location.
+ * Distances vary by postcode so different areas get different rankings.
+ * Includes realistic store names, addresses, and opening hours.
+ */
+function generateNearbyStores(origin: { lat: number; lng: number }, postcode: string): StoreInfo[] {
+  // Use postcode to seed angle/distance variation per retailer
+  const retailers = Object.entries(RETAILER_TEMPLATES);
+  const stores: StoreInfo[] = [];
+
+  for (let i = 0; i < retailers.length; i++) {
+    const [retailerCode, template] = retailers[i]!;
+    // Each retailer gets a different angle/distance based on postcode
+    const seed = simpleHash(`${postcode}-${retailerCode}`);
+    const angle = seed * 2 * Math.PI;
+    // Distance varies: base ± 40% based on postcode
+    const distFactor = 0.6 + seed * 0.8; // 0.6x to 1.4x
+    const dist = template.baseDist * distFactor;
+
+    const dlat = dist * Math.cos(angle);
+    const dlng = dist * Math.sin(angle);
+
+    // Pick address template based on seed
+    const addrIdx = Math.floor(seed * template.addressTemplates.length);
+    const addrSuffix = template.addressTemplates[addrIdx] ?? template.addressTemplates[0]!;
+
+    // Use postcode seed to generate a suburb-like name
+    // (actual suburb comes from ShopContext, not re-looked-up here)
+    const suburbName = _suburbForStores ?? 'Local';
+
+    stores.push({
+      storeId: `${retailerCode}-${postcode}`,
+      retailerCode,
+      storeName: `${template.namePrefix} ${suburbName} ${addrSuffix}`,
+      address: `${Math.floor(seed * 200 + 1)} ${suburbName} Rd, ${suburbName}`,
+      suburb: suburbName,
+      hours: template.hours,
+      lat: origin.lat + dlat,
+      lng: origin.lng + dlng,
+    });
+  }
+
+  return stores;
+}
+
+/** Global store cache so results page can look up store details by ID */
+let _lastStores: StoreInfo[] = [];
+let _suburbForStores: string = 'Local';
+
+export function getGeneratedStores(): StoreInfo[] {
+  return _lastStores;
+}
+
+/** Set the suburb name for store generation (called from results page) */
+export function setSuburbForStores(suburb: string) {
+  _suburbForStores = suburb;
 }
 
 // ─── Price Matrix (productId → retailer → price info) ───
@@ -338,8 +418,9 @@ function haversineKm(a: { lat: number; lng: number }, b: { lat: number; lng: num
  * Build the full offer list for the optimizer, relative to a user's origin.
  * Dynamically generates a nearby store per retailer so every postcode works.
  */
-export function buildOffers(origin: { lat: number; lng: number }): OptimiserOffer[] {
-  const nearbyStores = generateNearbyStores(origin);
+export function buildOffers(origin: { lat: number; lng: number }, postcode = '2000'): OptimiserOffer[] {
+  const nearbyStores = generateNearbyStores(origin, postcode);
+  _lastStores = nearbyStores; // cache for UI to read store details
   const storeByRetailer = new Map<string, StoreInfo>();
   for (const s of nearbyStores) {
     storeByRetailer.set(s.retailerCode, s);

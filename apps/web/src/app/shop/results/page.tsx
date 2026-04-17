@@ -4,8 +4,9 @@ import { useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, ShoppingCart, Truck, MapPin, Award, AlertTriangle, Star } from 'lucide-react';
 import { useShop } from '@/lib/shop-context';
-import { buildOffers, CATALOGUE_PRODUCTS } from '@/lib/catalogue';
+import { buildOffers, CATALOGUE_PRODUCTS, getGeneratedStores, setSuburbForStores, type StoreInfo } from '@/lib/catalogue';
 import { formatAUD } from '@/lib/utils';
+import { Clock, MapPin as MapPinIcon } from 'lucide-react';
 import { optimiseBasket } from '@smartshopper/core/basket';
 import { recommendFulfilment } from '@smartshopper/core/delivery';
 import { DEFAULT_DELIVERY_POLICIES } from '@smartshopper/core/delivery';
@@ -44,7 +45,8 @@ export default function ResultsPage() {
 
     if (resolvedItems.length === 0) return null;
 
-    const offers = buildOffers(origin);
+    setSuburbForStores(suburb);
+    const offers = buildOffers(origin, postcode);
 
     const plans = optimiseBasket({
       items: resolvedItems,
@@ -94,8 +96,9 @@ export default function ResultsPage() {
       }
     }
 
-    return { plans, fulfilmentByRetailer };
-  }, [items, origin, preferences]);
+    const stores = getGeneratedStores();
+    return { plans, fulfilmentByRetailer, stores };
+  }, [items, origin, preferences, postcode, suburb]);
 
   if (!hydrated) return null;
 
@@ -120,7 +123,7 @@ export default function ResultsPage() {
     );
   }
 
-  const { plans, fulfilmentByRetailer } = results;
+  const { plans, fulfilmentByRetailer, stores } = results;
   const unresolvedItems = items.filter((i) => !i.productId);
 
   return (
@@ -159,6 +162,7 @@ export default function ResultsPage() {
           plan={plan}
           rank={idx}
           fulfilment={fulfilmentByRetailer}
+          stores={stores}
           worstTotal={plans[plans.length - 1]?.grandTotal ?? plan.grandTotal}
         />
       ))}
@@ -170,11 +174,13 @@ function PlanCard({
   plan,
   rank,
   fulfilment,
+  stores,
   worstTotal,
 }: {
   plan: OptimiserPlan;
   rank: number;
   fulfilment: Map<string, Quote[]>;
+  stores: StoreInfo[];
   worstTotal: number;
 }) {
   const isBest = rank === 0;
@@ -210,6 +216,32 @@ function PlanCard({
             <div className="text-xs text-emerald-600 font-medium">Save {formatAUD(savings)}</div>
           )}
         </div>
+      </div>
+
+      {/* Store details */}
+      <div className="px-5 py-3 border-b border-gray-100 space-y-2">
+        {plan.retailerCodes.map((code) => {
+          const store = stores.find((s) => s.retailerCode === code);
+          if (!store) return null;
+          return (
+            <div key={code} className="flex items-start gap-3 text-xs">
+              <span className={`px-1.5 py-0.5 rounded text-xs font-medium shrink-0 mt-0.5 ${RETAILER_COLORS[code] ?? 'bg-gray-100 text-gray-600'}`}>
+                {RETAILER_NAMES[code] ?? code}
+              </span>
+              <div className="min-w-0">
+                <div className="font-medium text-gray-900">{store.storeName}</div>
+                <div className="flex items-center gap-1 text-gray-500 mt-0.5">
+                  <MapPinIcon className="h-3 w-3 shrink-0" />
+                  <span className="truncate">{store.address}</span>
+                </div>
+                <div className="flex items-center gap-1 text-gray-400 mt-0.5">
+                  <Clock className="h-3 w-3 shrink-0" />
+                  <span>{store.hours}</span>
+                </div>
+              </div>
+            </div>
+          );
+        })}
       </div>
 
       {/* Line items */}
