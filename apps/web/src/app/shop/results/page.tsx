@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { ArrowLeft, ShoppingCart, Truck, MapPin, Award, AlertTriangle, Star, Clock } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useShop } from '@/lib/shop-context';
-import { buildOffers, CATALOGUE_PRODUCTS, getGeneratedStores, type StoreInfo } from '@/lib/catalogue';
+import { buildOffers, CATALOGUE_PRODUCTS } from '@/lib/catalogue';
 import { formatAUD } from '@/lib/utils';
 import { optimiseBasket } from '@smartshopper/core/basket';
 import { recommendFulfilment } from '@smartshopper/core/delivery';
@@ -25,6 +25,13 @@ const RETAILER_NAMES: Record<string, string> = {
   woolworths: 'Woolworths',
   aldi: 'ALDI',
   iga: 'IGA',
+};
+
+const RETAILER_HOURS: Record<string, string> = {
+  coles: 'Typically 6am–10pm',
+  woolworths: 'Typically 6am–10pm (Sun 8am–9pm)',
+  aldi: 'Typically 8:30am–7pm (Sun 11am–5pm)',
+  iga: 'Typically 7am–9pm',
 };
 
 export default function ResultsPage() {
@@ -95,9 +102,8 @@ export default function ResultsPage() {
       }
     }
 
-    const stores = getGeneratedStores();
-    return { plans, fulfilmentByRetailer, stores };
-  }, [items, origin, preferences, postcode, suburb]);
+    return { plans, fulfilmentByRetailer };
+  }, [items, origin, preferences, postcode]);
 
   if (!hydrated) return null;
 
@@ -122,7 +128,7 @@ export default function ResultsPage() {
     );
   }
 
-  const { plans, fulfilmentByRetailer, stores } = results;
+  const { plans, fulfilmentByRetailer } = results;
   const unresolvedItems = items.filter((i) => !i.productId);
 
   return (
@@ -167,7 +173,6 @@ export default function ResultsPage() {
           plan={plan}
           rank={idx}
           fulfilment={fulfilmentByRetailer}
-          stores={stores}
           worstTotal={plans[plans.length - 1]?.grandTotal ?? plan.grandTotal}
         />
         </motion.div>
@@ -180,13 +185,11 @@ function PlanCard({
   plan,
   rank,
   fulfilment,
-  stores,
   worstTotal,
 }: {
   plan: OptimiserPlan;
   rank: number;
   fulfilment: Map<string, Quote[]>;
-  stores: StoreInfo[];
   worstTotal: number;
 }) {
   const isBest = rank === 0;
@@ -224,27 +227,21 @@ function PlanCard({
         </div>
       </div>
 
-      {/* Store details */}
-      <div className="px-5 py-3 border-b border-gray-100 space-y-2">
+      {/* Retailer hours */}
+      <div className="px-5 py-3 border-b border-gray-100 space-y-1.5">
         {plan.retailerCodes.map((code) => {
-          const store = stores.find((s) => s.retailerCode === code);
-          if (!store) return null;
+          const hours = RETAILER_HOURS[code];
           return (
-            <div key={code} className="flex items-start gap-3 text-xs">
-              <span className={`px-1.5 py-0.5 rounded text-xs font-medium shrink-0 mt-0.5 ${RETAILER_COLORS[code] ?? 'bg-gray-100 text-gray-600'}`}>
+            <div key={code} className="flex items-center gap-2 text-xs">
+              <span className={`px-1.5 py-0.5 rounded font-medium shrink-0 ${RETAILER_COLORS[code] ?? 'bg-gray-100 text-gray-600'}`}>
                 {RETAILER_NAMES[code] ?? code}
               </span>
-              <div className="min-w-0">
-                <div className="font-medium text-gray-900">{store.storeName}</div>
-                <div className="flex items-center gap-1 text-gray-500 mt-0.5">
-                  <MapPin className="h-3 w-3 shrink-0" />
-                  <span>{store.distanceLabel}</span>
-                </div>
-                <div className="flex items-center gap-1 text-gray-400 mt-0.5">
+              {hours && (
+                <span className="flex items-center gap-1 text-gray-400">
                   <Clock className="h-3 w-3 shrink-0" />
-                  <span>{store.hours}</span>
-                </div>
-              </div>
+                  {hours}
+                </span>
+              )}
             </div>
           );
         })}
