@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from 'next';
+import SessionProvider from '@/lib/session-provider';
 
 import './globals.css';
 
@@ -59,7 +60,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap"
         />
       </head>
-      <body className="min-h-screen bg-background font-sans antialiased">{children}</body>
+      <body className="min-h-screen bg-background font-sans antialiased">
+        <SessionProvider>{children}</SessionProvider>
+      </body>
     </html>
   );
 }
