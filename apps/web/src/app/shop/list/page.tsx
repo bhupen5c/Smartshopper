@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Search, Plus, Minus, X, Zap, MapPin, Settings2, ChevronDown, ChevronUp, HelpCircle, ArrowRight } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useShop } from '@/lib/shop-context';
 import { CATALOGUE_PRODUCTS } from '@/lib/catalogue';
 import { fuzzyMatch } from '@/lib/fuzzy-match';
@@ -218,9 +219,17 @@ export default function ShopListPage() {
           </p>
         </div>
       ) : (
-        <div className="bg-white rounded-xl border border-gray-200 divide-y divide-gray-100">
+        <div className="bg-white rounded-xl border border-gray-200 divide-y divide-gray-100 overflow-hidden">
+          <AnimatePresence initial={false}>
           {items.map((item) => (
-            <div key={item.id} className="flex items-center justify-between px-4 py-3">
+            <motion.div
+              key={item.id}
+              className="flex items-center justify-between px-4 py-3"
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+              transition={{ duration: 0.25 }}
+            >
               <div className="flex-1 min-w-0">
                 <div className="text-sm font-medium text-gray-900 truncate">
                   {item.productName ?? item.query}
@@ -253,8 +262,9 @@ export default function ShopListPage() {
                   <X className="h-3.5 w-3.5" />
                 </button>
               </div>
-            </div>
+            </motion.div>
           ))}
+          </AnimatePresence>
         </div>
       )}
 

@@ -3,7 +3,9 @@
 import { useState } from 'react';
 import { Loader2, MailCheck } from 'lucide-react';
 
+import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
+import { FadeIn } from '@/components/ui/motion';
 
 export function Waitlist() {
   const [email, setEmail] = useState('');

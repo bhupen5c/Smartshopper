@@ -2,11 +2,11 @@
 
 import { useMemo } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, ShoppingCart, Truck, MapPin, Award, AlertTriangle, Star } from 'lucide-react';
+import { ArrowLeft, ShoppingCart, Truck, MapPin, Award, AlertTriangle, Star, Clock } from 'lucide-react';
+import { motion } from 'framer-motion';
 import { useShop } from '@/lib/shop-context';
 import { buildOffers, CATALOGUE_PRODUCTS, getGeneratedStores, setSuburbForStores, type StoreInfo } from '@/lib/catalogue';
 import { formatAUD } from '@/lib/utils';
-import { Clock, MapPin as MapPinIcon } from 'lucide-react';
 import { optimiseBasket } from '@smartshopper/core/basket';
 import { recommendFulfilment } from '@smartshopper/core/delivery';
 import { DEFAULT_DELIVERY_POLICIES } from '@smartshopper/core/delivery';
@@ -157,6 +157,12 @@ export default function ResultsPage() {
 
       {/* Plan cards */}
       {plans.map((plan, idx) => (
+        <motion.div
+          key={idx}
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: idx * 0.1, ease: [0.21, 0.47, 0.32, 0.98] }}
+        >
         <PlanCard
           key={idx}
           plan={plan}
@@ -165,6 +171,7 @@ export default function ResultsPage() {
           stores={stores}
           worstTotal={plans[plans.length - 1]?.grandTotal ?? plan.grandTotal}
         />
+        </motion.div>
       ))}
     </div>
   );
@@ -231,7 +238,7 @@ function PlanCard({
               <div className="min-w-0">
                 <div className="font-medium text-gray-900">{store.storeName}</div>
                 <div className="flex items-center gap-1 text-gray-500 mt-0.5">
-                  <MapPinIcon className="h-3 w-3 shrink-0" />
+                  <MapPin className="h-3 w-3 shrink-0" />
                   <span className="truncate">{store.address}</span>
                 </div>
                 <div className="flex items-center gap-1 text-gray-400 mt-0.5">

@@ -1,7 +1,10 @@
+'use client';
+
 import { CheckCircle2, Truck } from 'lucide-react';
 
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { FadeIn, StaggerChildren, StaggerItem } from '@/components/ui/motion';
 import { formatAUD } from '@/lib/utils';
 import { DEMO_DELIVERY } from '@/lib/demo-data';
 
@@ -10,7 +13,7 @@ export function Delivery() {
     <section id="delivery" className="border-t bg-muted/30">
       <div className="container py-16 md:py-24">
         <div className="grid gap-10 md:grid-cols-[1.1fr_1fr]">
-          <div>
+          <FadeIn direction="left"><div>
             <Badge variant="secondary" className="w-fit gap-1">
               <Truck className="size-3.5" aria-hidden />
               Deep fulfilment analysis
@@ -37,11 +40,11 @@ export function Delivery() {
                 </li>
               ))}
             </ul>
-          </div>
+          </div></FadeIn>
 
-          <div className="flex flex-col gap-3">
+          <StaggerChildren className="flex flex-col gap-3">
             {DEMO_DELIVERY.map((row) => (
-              <Card key={row.retailer + row.mode} className={row.isBest ? 'border-primary' : ''}>
+              <StaggerItem key={row.retailer + row.mode}><Card className={`transition-all duration-300 hover:-translate-y-1 hover:shadow-lift ${row.isBest ? 'border-primary' : ''}`}>
                 <CardHeader className="flex flex-row items-start justify-between gap-2 space-y-0 pb-2">
                   <div>
                     <CardTitle className="text-base">
@@ -57,9 +60,9 @@ export function Delivery() {
                   <Stat label="Time" value={`${row.driveMinutes} min`} />
                   <Stat label="Total" value={formatAUD(row.total)} emphasis />
                 </CardContent>
-              </Card>
+              </Card></StaggerItem>
             ))}
-          </div>
+          </StaggerChildren>
         </div>
       </div>
     </section>

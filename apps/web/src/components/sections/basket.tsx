@@ -1,7 +1,10 @@
+'use client';
+
 import { Check } from 'lucide-react';
 
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { FadeIn } from '@/components/ui/motion';
 import { formatAUD } from '@/lib/utils';
 
 const DEMO_LIST = [
@@ -28,7 +31,7 @@ export function Basket() {
   return (
     <section id="basket" className="container py-16 md:py-24">
       <div className="grid gap-10 lg:grid-cols-[1.1fr_1fr]">
-        <div>
+        <FadeIn direction="left"><div>
           <h2 className="font-display text-3xl font-semibold md:text-4xl">Cheapest basket, across every retailer</h2>
           <p className="mt-3 max-w-xl text-muted-foreground">
             Drop in a shopping list, tell us your home postcode and how many stores you&apos;re
@@ -64,9 +67,9 @@ export function Basket() {
               </ul>
             </CardContent>
           </Card>
-        </div>
+        </div></FadeIn>
 
-        <div className="flex flex-col gap-4">
+        <FadeIn direction="right" delay={0.2}><div className="flex flex-col gap-4">
           <Card>
             <CardHeader>
               <CardTitle className="text-sm uppercase tracking-wide text-muted-foreground">
@@ -107,7 +110,7 @@ export function Basket() {
               <Pref label="Loyalty" value="Flybuys + Everyday" />
             </CardContent>
           </Card>
-        </div>
+        </div></FadeIn>
       </div>
     </section>
   );

@@ -3,6 +3,7 @@
 import { signIn } from 'next-auth/react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useState, Suspense } from 'react';
+import { motion } from 'framer-motion';
 
 function LoginForm() {
   const router = useRouter();
@@ -35,8 +36,13 @@ function LoginForm() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50">
-      <div className="w-full max-w-sm p-8 bg-white rounded-xl shadow-lg">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-50 via-white to-emerald-50">
+      <motion.div
+        className="w-full max-w-sm p-8 bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg border border-gray-200/50"
+        initial={{ opacity: 0, y: 20, scale: 0.97 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        transition={{ duration: 0.5, ease: [0.21, 0.47, 0.32, 0.98] }}
+      >
         <div className="text-center mb-8">
           <h1 className="text-2xl font-bold text-gray-900">SmartShopper</h1>
           <p className="text-sm text-gray-500 mt-1">Admin Login</p>
@@ -82,12 +88,12 @@ function LoginForm() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full py-2.5 px-4 bg-emerald-600 hover:bg-emerald-700 disabled:bg-emerald-400 text-white text-sm font-medium rounded-lg transition-colors"
+            className="w-full py-2.5 px-4 bg-emerald-600 hover:bg-emerald-700 disabled:bg-emerald-400 text-white text-sm font-medium rounded-lg transition-all duration-200 hover:shadow-glow active:scale-[0.98]"
           >
             {loading ? 'Signing in...' : 'Sign In'}
           </button>
         </form>
-      </div>
+      </motion.div>
     </div>
   );
 }

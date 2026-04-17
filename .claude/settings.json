@@ -7,7 +7,26 @@
       "Bash(git rm:*)",
       "Bash(git add:*)",
       "Bash(git commit:*)",
-      "Bash(git push:*)"
+      "Bash(git push:*)",
+      "mcp__claude_ai_Vercel__list_teams",
+      "mcp__claude_ai_Vercel__list_projects",
+      "mcp__claude_ai_Vercel__list_deployments",
+      "mcp__claude_ai_Vercel__get_deployment_build_logs",
+      "Bash(python3 -c \":*)",
+      "Bash(jq -r \".events[] | select\\(.text | test\\(\"\"error|Error|ERR|FAIL|fail\"\"; \"\"i\"\"\\)\\) | .text\")",
+      "Bash(grep -oi \"\"text\"\":\"\"[^\"\"]*error[^\"\"]*\"\" /Users/bhupensingh/.claude/projects/-Users-bhupensingh-Smartshopper/dec5671b-bc70-4006-8f03-b2ba70c26b7f/tool-results/mcp-claude_ai_Vercel-get_deployment_build_logs-1776390164339.txt)",
+      "Bash(grep -oi \"\"text\"\":\"\"[^\"\"]*ERR[^\"\"]*\"\" /Users/bhupensingh/.claude/projects/-Users-bhupensingh-Smartshopper/dec5671b-bc70-4006-8f03-b2ba70c26b7f/tool-results/mcp-claude_ai_Vercel-get_deployment_build_logs-1776390164339.txt)",
+      "Bash(git check-ignore:*)",
+      "Bash(pnpm add:*)",
+      "Bash(node -e \"const b=require\\(''bcryptjs''\\);b.hash\\(''smartshopper2024'',12\\).then\\(h=>console.log\\(h\\)\\)\")",
+      "Bash(unset __NEXT_PRIVATE_STANDALONE_CONFIG __NEXT_PRIVATE_RENDER_WORKER_CONFIG)",
+      "Bash(openssl rand:*)",
+      "Bash(vercel env:*)",
+      "Bash(vercel link:*)",
+      "Bash(vercel redeploy:*)",
+      "Bash(vercel ls:*)",
+      "Bash(pnpm -r --filter '@smartshopper/core' test)",
+      "Bash(pnpm test:*)"
     ]
   }
 }

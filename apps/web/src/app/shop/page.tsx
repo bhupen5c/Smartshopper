@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { MapPin, ArrowRight, ShoppingCart, TrendingDown, Truck } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useShop } from '@/lib/shop-context';
 import { lookupPostcode } from '@/lib/postcodes';
 
@@ -28,7 +29,12 @@ export default function ShopPage() {
   if (!hydrated) return null;
 
   return (
-    <div className="max-w-lg mx-auto pt-12">
+    <motion.div
+      className="max-w-lg mx-auto pt-12"
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.5, ease: [0.21, 0.47, 0.32, 0.98] }}
+    >
       <div className="text-center mb-8">
         <div className="inline-flex items-center gap-2 px-3 py-1 bg-emerald-50 text-emerald-700 text-xs font-medium rounded-full mb-4">
           <ShoppingCart className="h-3 w-3" />
@@ -72,13 +78,31 @@ export default function ShopPage() {
               <ArrowRight className="h-4 w-4" />
             </button>
           </div>
-          {error && <p className="text-sm text-red-600 mt-1">{error}</p>}
-          {suburb && !error && (
-            <p className="text-sm text-emerald-600 mt-1">
-              <MapPin className="h-3 w-3 inline mr-1" />
-              {suburb}
-            </p>
-          )}
+          <AnimatePresence mode="wait">
+            {error && (
+              <motion.p
+                key="error"
+                className="text-sm text-red-600 mt-1"
+                initial={{ opacity: 0, y: -5 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0 }}
+              >
+                {error}
+              </motion.p>
+            )}
+            {suburb && !error && (
+              <motion.p
+                key="suburb"
+                className="text-sm text-emerald-600 mt-1"
+                initial={{ opacity: 0, y: -5 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0 }}
+              >
+                <MapPin className="h-3 w-3 inline mr-1" />
+                {suburb}
+              </motion.p>
+            )}
+          </AnimatePresence>
         </div>
       </form>
 
@@ -87,14 +111,20 @@ export default function ShopPage() {
           { icon: TrendingDown, label: 'Find real specials', sub: 'Not cosmetic discounts' },
           { icon: ShoppingCart, label: 'Optimise your basket', sub: 'Across Coles, Woolies, ALDI, IGA' },
           { icon: Truck, label: 'Delivery or pickup?', sub: 'Based on your actual cost' },
-        ].map(({ icon: Icon, label, sub }) => (
-          <div key={label} className="p-4">
+        ].map(({ icon: Icon, label, sub }, i) => (
+          <motion.div
+            key={label}
+            className="p-4"
+            initial={{ opacity: 0, y: 15 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4, delay: 0.3 + i * 0.1 }}
+          >
             <Icon className="h-6 w-6 text-emerald-500 mx-auto mb-2" />
             <div className="text-sm font-medium text-gray-900">{label}</div>
             <div className="text-xs text-gray-400 mt-0.5">{sub}</div>
-          </div>
+          </motion.div>
         ))}
       </div>
-    </div>
+    </motion.div>
   );
 }
