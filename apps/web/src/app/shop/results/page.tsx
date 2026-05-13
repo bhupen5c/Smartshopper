@@ -128,10 +128,12 @@ export default function ResultsPage() {
   // doesn't flicker between "no offers" and "real offers".
   if (storesLoading && (!results || results.plans.length === 0)) {
     return (
-      <div className="max-w-2xl mx-auto text-center py-16">
-        <Loader2 className="h-8 w-8 text-emerald-500 mx-auto mb-3 animate-spin" />
-        <h2 className="text-lg font-medium text-gray-600">Finding real stores near you</h2>
-        <p className="text-sm text-gray-400 mt-1">From OpenStreetMap — usually a couple of seconds</p>
+      <div className="mx-auto max-w-2xl px-6 py-16 text-center">
+        <Loader2 className="mx-auto mb-3 size-8 animate-spin text-ink/60" />
+        <h2 className="bignum text-2xl">FINDING REAL STORES</h2>
+        <p className="mt-2 font-mono text-xs uppercase tracking-[0.14em] text-ink/60">
+          ◉ FROM OPENSTREETMAP · A COUPLE SECONDS
+        </p>
       </div>
     );
   }
@@ -211,6 +213,75 @@ export default function ResultsPage() {
         </div>
       )}
 
+      {/* INK VERDICT CARD — the eye-catcher (from comparison artboard) */}
+      <motion.div
+        className="brut-card overflow-hidden p-6"
+        style={{ background: 'var(--ink)', color: 'var(--cream)' }}
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4 }}
+      >
+        <div className="font-mono text-[11px] tracking-[0.18em]" style={{ color: 'var(--lime)' }}>
+          SMARTSHOPPER VERDICT
+        </div>
+        <div className="mt-3 flex flex-wrap items-baseline gap-5">
+          <div className="bignum text-[clamp(56px,9vw,88px)]" style={{ color: 'var(--lime)' }}>
+            {formatAUD(bestPlan.grandTotal)}
+          </div>
+          <div className="text-base">
+            {plans.length > 1 && plans[plans.length - 1]!.grandTotal > bestPlan.grandTotal && (
+              <>
+                <div className="line-through text-cream/40">
+                  {formatAUD(plans[plans.length - 1]!.grandTotal)} otherwise
+                </div>
+                <div className="font-bold" style={{ color: 'var(--lime)' }}>
+                  Save{' '}
+                  {formatAUD(plans[plans.length - 1]!.grandTotal - bestPlan.grandTotal)} (
+                  {Math.round(
+                    ((plans[plans.length - 1]!.grandTotal - bestPlan.grandTotal) /
+                      plans[plans.length - 1]!.grandTotal) *
+                      100,
+                  )}
+                  %)
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+        <div className="mt-4 text-sm leading-relaxed text-cream/80">
+          Cheapest with{' '}
+          <b style={{ color: 'var(--lime)' }}>
+            {bestPlan.retailerCodes
+              .map((c) => RETAILER_NAMES[c] ?? c)
+              .join(bestPlan.retailerCodes.length > 1 ? ' + ' : '')}
+          </b>
+          {bestPlan.totalTravelCost > 0 && (
+            <>
+              {' '}— total trip cost {formatAUD(bestPlan.totalTravelCost)} factored in.
+            </>
+          )}
+          {bestPlan.kind === 'multi_retailer' && (
+            <>
+              {' '}
+              <span style={{ color: 'var(--tomato)' }}>
+                Splitting basket beats a single-store run.
+              </span>
+            </>
+          )}
+        </div>
+        <div className="mt-5 flex flex-wrap gap-2.5">
+          <button onClick={() => router.push('/shop/list')} className="btn-lime text-sm">
+            Get directions →
+          </button>
+          <button
+            onClick={() => router.push('/shop/list')}
+            className="rounded-full border-[1.5px] border-cream bg-transparent px-5 py-3 text-sm font-medium text-cream hover:bg-cream hover:text-ink transition-colors"
+          >
+            Edit list
+          </button>
+        </div>
+      </motion.div>
+
       {/* Savings breakdown — receipt aesthetic */}
       {bestSinglePlan && multiPlan && bestPlan.lines.length >= 3 && (
         <motion.div
@@ -285,6 +356,46 @@ export default function ResultsPage() {
         </motion.div>
       ))}
 
+      {/* Three footer cards — pattern / forecast / bundle (from comparison artboard) */}
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+        <FootCard
+          label="BASKET PATTERN"
+          big={`${bestPlan.lines.length} items`}
+          note={`Optimised across ${bestPlan.retailerCodes.length} retailer${
+            bestPlan.retailerCodes.length === 1 ? '' : 's'
+          }. ${bestPlan.lines.filter((l) => l.isTrueSpecial).length} true specials caught.`}
+          color="lime"
+        />
+        <FootCard
+          label="TRAVEL COST · IF DRIVING"
+          big={
+            bestPlan.totalTravelCost > 0
+              ? `+${formatAUD(bestPlan.totalTravelCost)}`
+              : 'No travel'
+          }
+          note={
+            bestPlan.totalTravelCost > 0
+              ? `Fuel cost across ${bestPlan.retailerCodes.length} stop${
+                  bestPlan.retailerCodes.length === 1 ? '' : 's'
+                } at $${preferences.fuelCostPerKm}/km.`
+              : 'Walkable or delivery — no fuel cost factored in.'
+          }
+          color="tomato"
+          inv
+        />
+        <FootCard
+          label="BUNDLE SAVINGS"
+          big={
+            plans.length > 1 && plans[plans.length - 1]!.grandTotal > bestPlan.grandTotal
+              ? `+ ${formatAUD(plans[plans.length - 1]!.grandTotal - bestPlan.grandTotal)}`
+              : '$0'
+          }
+          note="vs. the worst single-store option. Members + true specials stacked where eligible."
+          color="cobalt"
+          inv
+        />
+      </div>
+
       {/* Real store map from OpenStreetMap */}
       {origin && (
         <motion.div
@@ -300,6 +411,47 @@ export default function ResultsPage() {
           />
         </motion.div>
       )}
+    </div>
+  );
+}
+
+function FootCard({
+  label,
+  big,
+  note,
+  color,
+  inv,
+}: {
+  label: string;
+  big: string;
+  note: string;
+  color: 'lime' | 'tomato' | 'cobalt';
+  inv?: boolean;
+}) {
+  const hex = color === 'lime' ? '#DCFF3D' : color === 'tomato' ? '#FF4D2E' : '#2A3CFF';
+  return (
+    <div
+      className="brut-card p-5"
+      style={{
+        background: inv ? hex : 'var(--paper)',
+        color: inv ? 'var(--cream)' : 'var(--ink)',
+      }}
+    >
+      <div
+        className="font-mono text-[10px] tracking-[0.16em]"
+        style={{ color: inv ? 'rgba(247,242,231,0.7)' : 'var(--ink-70)' }}
+      >
+        {label}
+      </div>
+      <div
+        className="bignum mt-2 text-[28px]"
+        style={{
+          color: inv ? 'var(--cream)' : color === 'lime' ? 'var(--ink)' : hex,
+        }}
+      >
+        {big}
+      </div>
+      <div className="mt-2 text-[12px] leading-relaxed opacity-85">{note}</div>
     </div>
   );
 }
@@ -368,33 +520,39 @@ function PlanCard({
       </div>
 
       {/* Real store details per retailer (name, address, hours from OSM) */}
-      <div className="px-5 py-3 border-b border-gray-100 space-y-2.5">
-        {plan.retailerCodes.map((code) => {
+      <div
+        className="space-y-2.5 px-5 py-3"
+        style={{ borderBottom: '1px dashed var(--ink-15)', background: 'var(--cream-2)' }}
+      >
+        {plan.retailerCodes.map((code, i) => {
           const store = storesByRetailer.get(code);
           const hours = formatOpeningHours(store?.hours) ?? RETAILER_FALLBACK_HOURS[code];
           return (
-            <div key={code} className="flex items-start gap-2 text-xs">
-              <span className={`px-1.5 py-0.5 rounded font-medium shrink-0 mt-0.5 ${RETAILER_COLORS[code] ?? 'bg-gray-100 text-gray-600'}`}>
-                {RETAILER_NAMES[code] ?? code}
+            <div key={code} className="flex items-start gap-3 text-xs">
+              <span className="store__bug" style={{ width: 30, height: 30, fontSize: 11 }}>
+                {String(i + 1).padStart(2, '0')}
               </span>
               <div className="min-w-0 flex-1 space-y-0.5">
-                {store ? (
-                  <div className="font-medium text-gray-700 truncate">
-                    {store.storeName}
-                    {store.distanceLabel && (
-                      <span className="ml-2 font-normal text-gray-400">· {store.distanceLabel}</span>
-                    )}
-                  </div>
-                ) : null}
+                <div className="flex items-center gap-2">
+                  <span className="ss-chip" style={{ background: 'var(--paper)', fontSize: 10, padding: '2px 8px' }}>
+                    {RETAILER_NAMES[code] ?? code}
+                  </span>
+                  {store && (
+                    <span className="font-medium">{store.storeName}</span>
+                  )}
+                  {store?.distanceLabel && (
+                    <span className="font-mono text-ink/50">{store.distanceLabel}</span>
+                  )}
+                </div>
                 {store?.address && (
-                  <div className="text-gray-500 flex items-center gap-1">
-                    <MapPin className="h-3 w-3 shrink-0" />
+                  <div className="flex items-center gap-1 text-ink/60">
+                    <MapPin className="size-3 shrink-0" />
                     <span className="truncate">{store.address}</span>
                   </div>
                 )}
                 {hours && (
-                  <div className="text-gray-400 flex items-center gap-1">
-                    <Clock className="h-3 w-3 shrink-0" />
+                  <div className="flex items-center gap-1 text-ink/50">
+                    <Clock className="size-3 shrink-0" />
                     <span className="truncate">{hours}</span>
                   </div>
                 )}
@@ -499,10 +657,13 @@ function PlanCard({
 
       {/* Fulfilment options for best plan */}
       {rank === 0 && plan.retailerCodes.some((c) => fulfilment.has(c)) && (
-        <div className="px-5 py-4 border-t border-gray-200">
-          <h3 className="text-sm font-semibold text-gray-900 mb-3 flex items-center gap-2">
-            <Truck className="h-4 w-4" />
-            Delivery vs Pickup
+        <div
+          className="px-5 py-4"
+          style={{ borderTop: '1.5px solid var(--ink)', background: 'var(--paper)' }}
+        >
+          <h3 className="mb-3 flex items-center gap-2 font-mono text-xs uppercase tracking-[0.14em] text-ink/70">
+            <Truck className="size-3.5" />
+            DELIVERY vs PICKUP
           </h3>
           <div className="space-y-3">
             {plan.retailerCodes.map((code) => {
@@ -510,40 +671,52 @@ function PlanCard({
               if (!quotes?.length) return null;
               return (
                 <div key={code}>
-                  <div className="text-xs font-medium text-gray-500 mb-1">{RETAILER_NAMES[code] ?? code}</div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                    {quotes.filter((q) => q.eligible).slice(0, 3).map((q, i) => (
-                      <div
-                        key={q.mode}
-                        className={`p-3 rounded-lg border text-sm ${
-                          i === 0 ? 'border-emerald-200 bg-emerald-50' : 'border-gray-200'
-                        }`}
-                      >
-                        <div className="flex justify-between items-center mb-1">
-                          <span className="font-medium text-gray-900 capitalize text-xs">
-                            {q.mode.replace(/_/g, ' ')}
-                          </span>
-                          <span className="font-mono font-semibold text-gray-900 text-xs">
-                            {formatAUD(q.totalCost)}
-                          </span>
-                        </div>
-                        <div className="text-xs text-gray-400">
-                          {q.fee > 0 && <span>Fee: {formatAUD(q.fee)} · </span>}
-                          {q.distanceKm > 0 && <span>{q.distanceKm.toFixed(1)}km · </span>}
-                          {q.roundTripMinutes > 0 && (
-                            <span>
-                              {Math.round(q.roundTripMinutes)}min {q.travelCost === 0 && q.distanceKm > 0 ? 'walk' : q.distanceKm > 0 ? 'drive' : ''}
+                  <div className="mb-1.5 text-xs font-semibold text-ink/70">
+                    {RETAILER_NAMES[code] ?? code}
+                  </div>
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    {quotes
+                      .filter((q) => q.eligible)
+                      .slice(0, 3)
+                      .map((q, i) => (
+                        <div
+                          key={q.mode}
+                          className="rounded-xl border-[1.5px] p-3 text-sm"
+                          style={{
+                            borderColor: 'var(--ink)',
+                            background: i === 0 ? 'var(--lime)' : 'var(--paper)',
+                          }}
+                        >
+                          <div className="mb-1 flex items-center justify-between">
+                            <span className="text-xs font-bold uppercase tracking-wider">
+                              {q.mode.replace(/_/g, ' ')}
                             </span>
-                          )}
-                          {q.travelCost === 0 && q.distanceKm > 0 && q.distanceKm <= 2 && (
-                            <span> · No fuel cost</span>
+                            <span className="font-mono text-xs font-semibold">
+                              {formatAUD(q.totalCost)}
+                            </span>
+                          </div>
+                          <div className="text-xs text-ink/60">
+                            {q.fee > 0 && <span>Fee: {formatAUD(q.fee)} · </span>}
+                            {q.distanceKm > 0 && <span>{q.distanceKm.toFixed(1)}km · </span>}
+                            {q.roundTripMinutes > 0 && (
+                              <span>
+                                {Math.round(q.roundTripMinutes)}min{' '}
+                                {q.travelCost === 0 && q.distanceKm > 0
+                                  ? 'walk'
+                                  : q.distanceKm > 0
+                                    ? 'drive'
+                                    : ''}
+                              </span>
+                            )}
+                            {q.travelCost === 0 && q.distanceKm > 0 && q.distanceKm <= 2 && (
+                              <span> · No fuel cost</span>
+                            )}
+                          </div>
+                          {q.explanation && (
+                            <div className="mt-1 text-xs text-ink/70">{q.explanation}</div>
                           )}
                         </div>
-                        {q.explanation && (
-                          <div className="text-xs text-gray-500 mt-1">{q.explanation}</div>
-                        )}
-                      </div>
-                    ))}
+                      ))}
                   </div>
                 </div>
               );
@@ -553,7 +726,10 @@ function PlanCard({
       )}
 
       {plan.explanation && (
-        <div className="px-5 py-3 border-t border-gray-100 text-xs text-gray-500">
+        <div
+          className="px-5 py-3 text-xs text-ink/60"
+          style={{ borderTop: '1px dashed var(--ink-15)' }}
+        >
           {plan.explanation}
         </div>
       )}
