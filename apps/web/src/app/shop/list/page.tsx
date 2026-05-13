@@ -1,11 +1,11 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Search, Plus, Minus, X, Zap, MapPin, Settings2, ChevronDown, ChevronUp, HelpCircle, ArrowRight } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useShop } from '@/lib/shop-context';
-import { CATALOGUE_PRODUCTS } from '@/lib/catalogue';
+import { CATALOGUE_PRODUCTS, countRetailersForBasket } from '@/lib/catalogue';
 import { fuzzyMatch } from '@/lib/fuzzy-match';
 import { matchIntent, findProductsByKeywords, type IntentMatch, type ProbeOption } from '@/lib/smart-search';
 
@@ -32,6 +32,17 @@ export default function ShopListPage() {
   const router = useRouter();
   const [query, setQuery] = useState('');
   const [showSuggestions, setShowSuggestions] = useState(false);
+
+  // Cap the "Max stores to visit" dropdown to the actual number of retailers
+  // that carry at least one of the user's items. No point offering "5 stores"
+  // when only 3 retailers stock anything in the basket.
+  const availableRetailerCount = useMemo(() => countRetailersForBasket(items), [items]);
+  const maxStoresCeiling = Math.max(1, availableRetailerCount);
+  useEffect(() => {
+    if (preferences.maxStores > maxStoresCeiling) {
+      setPreferences({ maxStores: maxStoresCeiling });
+    }
+  }, [preferences.maxStores, maxStoresCeiling, setPreferences]);
   const [showPrefs, setShowPrefs] = useState(false);
   // Smart search state
   const [activeProbe, setActiveProbe] = useState<IntentMatch | null>(null);
@@ -368,15 +379,24 @@ export default function ShopListPage() {
           <div className="px-4 pb-4 space-y-4 border-t border-gray-100 pt-4">
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-xs text-gray-500 mb-1">Max stores to visit</label>
+                <label className="block text-xs text-gray-500 mb-1">
+                  Max stores to visit
+                  {availableRetailerCount > 0 && (
+                    <span className="ml-1 font-mono text-[10px] text-ink/40">
+                      (up to {maxStoresCeiling} carry your items)
+                    </span>
+                  )}
+                </label>
                 <select
-                  value={preferences.maxStores}
+                  value={Math.min(preferences.maxStores, maxStoresCeiling)}
                   onChange={(e) => setPreferences({ maxStores: Number(e.target.value) })}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
                 >
-                  <option value={1}>1 store</option>
-                  <option value={2}>2 stores</option>
-                  <option value={3}>3 stores</option>
+                  {Array.from({ length: maxStoresCeiling }, (_, i) => i + 1).map((n) => (
+                    <option key={n} value={n}>
+                      {n} store{n === 1 ? '' : 's'}
+                    </option>
+                  ))}
                 </select>
               </div>
               <div>
