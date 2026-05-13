@@ -251,6 +251,43 @@ export default function ResultsPage() {
             )}
           </div>
         </div>
+        {/* Explicit basket vs travel breakdown. The big lime number above
+            is the all-in cost the optimiser ranks by; this strip makes it
+            clear what's products and what's getting there. */}
+        <div className="mt-3 flex flex-wrap items-center gap-x-2 gap-y-1 font-mono text-[12px] text-cream/70">
+          <span>
+            <span className="text-cream/50">Basket</span>{' '}
+            <span className="font-bold text-cream">{formatAUD(bestPlan.subtotal)}</span>
+          </span>
+          {bestPlan.totalFees > 0 && (
+            <span>
+              <span className="text-cream/50">·</span>{' '}
+              <span className="text-cream/50">Fees</span>{' '}
+              <span className="font-bold text-cream">+{formatAUD(bestPlan.totalFees)}</span>
+            </span>
+          )}
+          {bestPlan.totalTravelCost > 0 && (
+            <span>
+              <span className="text-cream/50">·</span>{' '}
+              <span className="text-cream/50">Travel</span>{' '}
+              <span className="font-bold text-cream">+{formatAUD(bestPlan.totalTravelCost)}</span>
+            </span>
+          )}
+          {bestPlan.totalLoyaltyRebate > 0 && (
+            <span>
+              <span className="text-cream/50">·</span>{' '}
+              <span className="text-cream/50">Loyalty</span>{' '}
+              <span className="font-bold" style={{ color: 'var(--lime)' }}>
+                −{formatAUD(bestPlan.totalLoyaltyRebate)}
+              </span>
+            </span>
+          )}
+          {(bestPlan.totalFees > 0 ||
+            bestPlan.totalTravelCost > 0 ||
+            bestPlan.totalLoyaltyRebate > 0) && (
+            <span className="text-cream/50">= {formatAUD(bestPlan.grandTotal)}</span>
+          )}
+        </div>
         <div className="mt-4 text-sm leading-relaxed text-cream/80">
           Cheapest with{' '}
           <b style={{ color: 'var(--lime)' }}>
@@ -514,6 +551,14 @@ function PlanCard({
         </div>
         <div className="text-right">
           <div className="bignum text-3xl">{formatAUD(plan.grandTotal)}</div>
+          {/* basket / travel / fees split — keep products visible separately
+              from the all-in cost so users see what they're really paying for. */}
+          <div className="mt-1 font-mono text-[10px] text-ink/60">
+            {formatAUD(plan.subtotal)} basket
+            {plan.totalFees > 0 && <> · +{formatAUD(plan.totalFees)} fees</>}
+            {plan.totalTravelCost > 0 && <> · +{formatAUD(plan.totalTravelCost)} travel</>}
+            {plan.totalLoyaltyRebate > 0 && <> · −{formatAUD(plan.totalLoyaltyRebate)} loyalty</>}
+          </div>
           {savings > 0.5 && (
             <div className="mt-0.5 font-mono text-xs font-bold" style={{ color: 'var(--tomato)' }}>
               SAVE {formatAUD(savings)}
