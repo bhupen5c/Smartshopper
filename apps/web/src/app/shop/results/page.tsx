@@ -16,13 +16,13 @@ import { StoreMap } from '@/components/shop/store-map';
 import { RETAILER_COLORS, RETAILER_NAMES, RETAILER_FALLBACK_HOURS, formatOpeningHours } from '@/lib/retailers';
 
 export default function ResultsPage() {
-  const { items, origin, preferences, postcode, suburb, hydrated, nearbyStores, storesLoading } = useShop();
+  const { items, origin, preferences, postcode, suburb, hydrated, nearbyStores, storesLoading, livePrices } = useShop();
   const router = useRouter();
 
   const results = useMemo(() => {
     if (!origin || items.length === 0) return null;
 
-    const baseOffers = buildOffers(origin, nearbyStores);
+    const baseOffers = buildOffers(origin, nearbyStores, livePrices);
     const assignedStores = getNearestStores();
 
     // Build the items + offers lists together so that generic items
@@ -120,7 +120,7 @@ export default function ResultsPage() {
     }
 
     return { plans, fulfilmentByRetailer, assignedStores };
-  }, [items, origin, preferences, nearbyStores]);
+  }, [items, origin, preferences, nearbyStores, livePrices]);
 
   if (!hydrated) return null;
 
