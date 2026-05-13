@@ -424,6 +424,37 @@ const PRICE_MATRIX: PriceEntry[] = [
   { productId: 'p74', retailerCode: 'woolworths', price: 7.50, isTrueSpecial: true, memberOnly: false },
 ];
 
+// ─── Helpers for the shopping-list UI ───
+
+interface BasketItem {
+  productId?: string | null;
+  genericType?: string;
+}
+
+/**
+ * Count the unique retailers (from PRICE_MATRIX — supermarkets, not
+ * convenience stores) that carry at least one of the items in the user's
+ * list. Used by the "Max stores to visit" dropdown so it never offers
+ * more stores than the optimiser could actually pick from.
+ */
+export function countRetailersForBasket(items: readonly BasketItem[]): number {
+  const productIds = new Set<string>();
+  for (const item of items) {
+    if (item.productId) productIds.add(item.productId);
+    if (item.genericType) {
+      for (const p of CATALOGUE_PRODUCTS) {
+        if (p.genericType === item.genericType) productIds.add(p.id);
+      }
+    }
+  }
+  if (productIds.size === 0) return 0;
+  const retailers = new Set<string>();
+  for (const pe of PRICE_MATRIX) {
+    if (productIds.has(pe.productId)) retailers.add(pe.retailerCode);
+  }
+  return retailers.size;
+}
+
 // ─── Convenience-store prices (display-only) ───
 // We don't have full baskets at servos / corner shops, but they do carry
 // top-up items at a premium. Surfacing these prices lets users see what
