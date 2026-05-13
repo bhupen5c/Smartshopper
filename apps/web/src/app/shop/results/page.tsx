@@ -171,7 +171,7 @@ export default function ResultsPage() {
           <div className="font-mono text-xs uppercase tracking-[0.16em] text-ink/70">
             ◉ BEST DEALS · LIVE
           </div>
-          <h1 className="bignum mt-2 text-[clamp(40px,7vw,68px)] leading-[0.95]">
+          <h1 className="bignum mt-4 text-[clamp(40px,7vw,68px)] leading-[0.95]">
             YOUR <span className="mark-lime">BASKET</span>,
             <br />
             REALIGNED.
@@ -224,11 +224,14 @@ export default function ResultsPage() {
         <div className="font-mono text-[11px] tracking-[0.18em]" style={{ color: 'var(--lime)' }}>
           SMARTSHOPPER VERDICT
         </div>
-        <div className="mt-3 flex flex-wrap items-baseline gap-5">
-          <div className="bignum text-[clamp(56px,9vw,88px)]" style={{ color: 'var(--lime)' }}>
+        <div className="mt-6 flex flex-wrap items-end gap-x-6 gap-y-3">
+          <div
+            className="bignum text-[clamp(48px,8vw,80px)] leading-none"
+            style={{ color: 'var(--lime)' }}
+          >
             {formatAUD(bestPlan.grandTotal)}
           </div>
-          <div className="text-base">
+          <div className="pb-1 text-sm sm:text-base">
             {plans.length > 1 && plans[plans.length - 1]!.grandTotal > bestPlan.grandTotal && (
               <>
                 <div className="line-through text-cream/40">

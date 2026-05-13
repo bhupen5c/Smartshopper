@@ -357,11 +357,15 @@
     border-color: var(--ink);
   }
 
-  /* Big display number */
+  /* Big display number.
+     line-height: 1 (not 0.9) — Boldonse has tall ascenders that bleed
+     above a 0.9 line-box and visually overlap whatever sits on the line
+     above. Pages that want tighter multi-line stacking add `leading-[0.95]`
+     on the element itself. */
   .bignum {
     font-family: var(--font-display);
     font-weight: 400;
-    line-height: 0.9;
+    line-height: 1;
     letter-spacing: -0.04em;
   }
 
