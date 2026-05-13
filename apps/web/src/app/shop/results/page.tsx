@@ -2,10 +2,10 @@
 
 import { useMemo } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, ShoppingCart, Truck, MapPin, Award, AlertTriangle, Star, Clock } from 'lucide-react';
+import { ArrowLeft, ShoppingCart, Truck, MapPin, Award, AlertTriangle, Star, Clock, Loader2 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useShop } from '@/lib/shop-context';
-import { buildOffers, CATALOGUE_PRODUCTS } from '@/lib/catalogue';
+import { buildOffers, CATALOGUE_PRODUCTS, getNearestStores } from '@/lib/catalogue';
 import { formatAUD } from '@/lib/utils';
 import { optimiseBasket } from '@smartshopper/core/basket';
 import { recommendFulfilment } from '@smartshopper/core/delivery';
@@ -13,36 +13,17 @@ import { DEFAULT_DELIVERY_POLICIES } from '@smartshopper/core/delivery';
 import type { OptimiserPlan } from '@smartshopper/core/basket';
 import type { Quote } from '@smartshopper/core/delivery';
 import { StoreMap } from '@/components/shop/store-map';
-
-const RETAILER_COLORS: Record<string, string> = {
-  coles: 'bg-red-50 text-red-600',
-  woolworths: 'bg-green-50 text-green-600',
-  aldi: 'bg-blue-50 text-blue-600',
-  iga: 'bg-orange-50 text-orange-600',
-};
-
-const RETAILER_NAMES: Record<string, string> = {
-  coles: 'Coles',
-  woolworths: 'Woolworths',
-  aldi: 'ALDI',
-  iga: 'IGA',
-};
-
-const RETAILER_HOURS: Record<string, string> = {
-  coles: 'Typically 6am–10pm',
-  woolworths: 'Typically 6am–10pm (Sun 8am–9pm)',
-  aldi: 'Typically 8:30am–7pm (Sun 11am–5pm)',
-  iga: 'Typically 7am–9pm',
-};
+import { RETAILER_COLORS, RETAILER_NAMES, RETAILER_FALLBACK_HOURS, formatOpeningHours } from '@/lib/retailers';
 
 export default function ResultsPage() {
-  const { items, origin, preferences, postcode, suburb, hydrated } = useShop();
+  const { items, origin, preferences, postcode, suburb, hydrated, nearbyStores, storesLoading } = useShop();
   const router = useRouter();
 
   const results = useMemo(() => {
     if (!origin || items.length === 0) return null;
 
-    const baseOffers = buildOffers(origin, postcode);
+    const baseOffers = buildOffers(origin, nearbyStores);
+    const assignedStores = getNearestStores();
 
     // Build the items + offers lists together so that generic items
     // ("Any haloumi") expand to offers for every matching branded product.
@@ -138,10 +119,22 @@ export default function ResultsPage() {
       }
     }
 
-    return { plans, fulfilmentByRetailer };
-  }, [items, origin, preferences, postcode]);
+    return { plans, fulfilmentByRetailer, assignedStores };
+  }, [items, origin, preferences, nearbyStores]);
 
   if (!hydrated) return null;
+
+  // Stores are being fetched from OSM — show a brief skeleton so the UI
+  // doesn't flicker between "no offers" and "real offers".
+  if (storesLoading && (!results || results.plans.length === 0)) {
+    return (
+      <div className="max-w-2xl mx-auto text-center py-16">
+        <Loader2 className="h-8 w-8 text-emerald-500 mx-auto mb-3 animate-spin" />
+        <h2 className="text-lg font-medium text-gray-600">Finding real stores near you</h2>
+        <p className="text-sm text-gray-400 mt-1">From OpenStreetMap — usually a couple of seconds</p>
+      </div>
+    );
+  }
 
   if (!origin) {
     router.push('/shop');
@@ -164,7 +157,8 @@ export default function ResultsPage() {
     );
   }
 
-  const { plans, fulfilmentByRetailer } = results;
+  const { plans, fulfilmentByRetailer, assignedStores } = results;
+  const storesByRetailer = new Map(assignedStores.map((s) => [s.retailerCode, s]));
   const unresolvedItems = items.filter((i) => !i.productId && !i.genericType);
   const bestPlan = plans[0]!;
   const bestSinglePlan = plans.find((p) => p.kind === 'single_retailer');
@@ -197,6 +191,18 @@ export default function ResultsPage() {
             <strong>{unresolvedItems.length} item(s)</strong> couldn&apos;t be matched:{' '}
             {unresolvedItems.map((i) => i.query).join(', ')}
           </div>
+        </div>
+      )}
+
+      {assignedStores.length > 0 && (
+        <div className="text-xs text-gray-400 flex items-center gap-1.5">
+          <MapPin className="h-3 w-3" />
+          Store details from OpenStreetMap · {assignedStores.length} retailer{assignedStores.length === 1 ? '' : 's'} matched near you
+        </div>
+      )}
+      {assignedStores.length === 0 && nearbyStores.length === 0 && (
+        <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-700">
+          We couldn&apos;t reach OpenStreetMap, so we&apos;re using estimated distances from your postcode centroid.
         </div>
       )}
 
@@ -265,6 +271,7 @@ export default function ResultsPage() {
           rank={idx}
           fulfilment={fulfilmentByRetailer}
           worstTotal={plans[plans.length - 1]?.grandTotal ?? plan.grandTotal}
+          storesByRetailer={storesByRetailer}
         />
         </motion.div>
       ))}
@@ -280,6 +287,7 @@ export default function ResultsPage() {
             lat={origin.lat}
             lng={origin.lng}
             highlightRetailers={plans[0]?.retailerCodes}
+            preloaded={nearbyStores}
           />
         </motion.div>
       )}
@@ -292,11 +300,13 @@ function PlanCard({
   rank,
   fulfilment,
   worstTotal,
+  storesByRetailer,
 }: {
   plan: OptimiserPlan;
   rank: number;
   fulfilment: Map<string, Quote[]>;
   worstTotal: number;
+  storesByRetailer: Map<string, import('@/lib/catalogue').StoreInfo>;
 }) {
   const isBest = rank === 0;
   const savings = worstTotal - plan.grandTotal;
@@ -333,21 +343,38 @@ function PlanCard({
         </div>
       </div>
 
-      {/* Retailer hours */}
-      <div className="px-5 py-3 border-b border-gray-100 space-y-1.5">
+      {/* Real store details per retailer (name, address, hours from OSM) */}
+      <div className="px-5 py-3 border-b border-gray-100 space-y-2.5">
         {plan.retailerCodes.map((code) => {
-          const hours = RETAILER_HOURS[code];
+          const store = storesByRetailer.get(code);
+          const hours = formatOpeningHours(store?.hours) ?? RETAILER_FALLBACK_HOURS[code];
           return (
-            <div key={code} className="flex items-center gap-2 text-xs">
-              <span className={`px-1.5 py-0.5 rounded font-medium shrink-0 ${RETAILER_COLORS[code] ?? 'bg-gray-100 text-gray-600'}`}>
+            <div key={code} className="flex items-start gap-2 text-xs">
+              <span className={`px-1.5 py-0.5 rounded font-medium shrink-0 mt-0.5 ${RETAILER_COLORS[code] ?? 'bg-gray-100 text-gray-600'}`}>
                 {RETAILER_NAMES[code] ?? code}
               </span>
-              {hours && (
-                <span className="flex items-center gap-1 text-gray-400">
-                  <Clock className="h-3 w-3 shrink-0" />
-                  {hours}
-                </span>
-              )}
+              <div className="min-w-0 flex-1 space-y-0.5">
+                {store ? (
+                  <div className="font-medium text-gray-700 truncate">
+                    {store.storeName}
+                    {store.distanceLabel && (
+                      <span className="ml-2 font-normal text-gray-400">· {store.distanceLabel}</span>
+                    )}
+                  </div>
+                ) : null}
+                {store?.address && (
+                  <div className="text-gray-500 flex items-center gap-1">
+                    <MapPin className="h-3 w-3 shrink-0" />
+                    <span className="truncate">{store.address}</span>
+                  </div>
+                )}
+                {hours && (
+                  <div className="text-gray-400 flex items-center gap-1">
+                    <Clock className="h-3 w-3 shrink-0" />
+                    <span className="truncate">{hours}</span>
+                  </div>
+                )}
+              </div>
             </div>
           );
         })}

@@ -2,6 +2,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { lookupPostcode } from './postcodes';
+import type { RealStore } from './overpass';
 
 // ─── Types ───
 
@@ -46,6 +47,10 @@ interface ShopContextValue extends ShopState {
   clearList: () => void;
   setPreferences: (prefs: Partial<ShopPreferences>) => void;
   hydrated: boolean;
+  /** Real OSM stores near current origin (loaded lazily). */
+  nearbyStores: RealStore[];
+  storesLoading: boolean;
+  storesError: boolean;
 }
 
 // ─── Defaults ───
@@ -90,6 +95,9 @@ function genId(): string {
 export function ShopProvider({ children }: { children: React.ReactNode }) {
   const [state, setState] = useState<ShopState>(DEFAULT_STATE);
   const [hydrated, setHydrated] = useState(false);
+  const [nearbyStores, setNearbyStores] = useState<RealStore[]>([]);
+  const [storesLoading, setStoresLoading] = useState(false);
+  const [storesError, setStoresError] = useState(false);
   const skipPersist = useRef(true);
 
   // Hydrate from localStorage on mount
@@ -120,6 +128,36 @@ export function ShopProvider({ children }: { children: React.ReactNode }) {
       // quota exceeded — ignore
     }
   }, [state]);
+
+  // When origin changes, fetch real stores from /api/stores. We round
+  // lat/lng to 3dp (~100m) so we don't fetch repeatedly for tiny moves
+  // and so the server cache key hits.
+  const lat = state.origin?.lat ?? null;
+  const lng = state.origin?.lng ?? null;
+  useEffect(() => {
+    if (lat == null || lng == null) {
+      setNearbyStores([]);
+      return;
+    }
+    let cancelled = false;
+    setStoresLoading(true);
+    setStoresError(false);
+    const rLat = Math.round(lat * 1000) / 1000;
+    const rLng = Math.round(lng * 1000) / 1000;
+    fetch(`/api/stores?lat=${rLat}&lng=${rLng}&radius=10000`)
+      .then((r) => (r.ok ? r.json() : Promise.reject(r.status)))
+      .then((data: { stores?: RealStore[] }) => {
+        if (cancelled) return;
+        setNearbyStores(data.stores ?? []);
+        setStoresLoading(false);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setStoresError(true);
+        setStoresLoading(false);
+      });
+    return () => { cancelled = true; };
+  }, [lat, lng]);
 
   const setPostcode = useCallback((postcode: string) => {
     const entry = lookupPostcode(postcode);
@@ -174,6 +212,9 @@ export function ShopProvider({ children }: { children: React.ReactNode }) {
         clearList,
         setPreferences,
         hydrated,
+        nearbyStores,
+        storesLoading,
+        storesError,
       }}
     >
       {children}

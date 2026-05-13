@@ -135,106 +135,77 @@ export const CATALOGUE_PRODUCTS: CatalogueProduct[] = [
   { id: 'p74', name: 'Sensodyne Daily Care Toothpaste', brand: 'Sensodyne', category: 'Personal', size: '110g', genericType: 'toothpaste', aliases: ['toothpaste', 'sensitive toothpaste'] },
 ];
 
-// ─── Dynamic Store Generation ───
-// Generates realistic nearby stores with names, addresses, and opening
-// hours. Distances vary by postcode (using a hash of the postcode digits)
-// so different locations get different "nearest" retailers.
+// ─── Store info derived from real OSM data ───
+// `buildOffers` accepts a list of real stores (loaded from Overpass via
+// `/api/stores`) and picks the closest one per retailer for distance
+// calculations. No more hash-based fake locations.
 
 export interface StoreInfo {
   storeId: string;
   retailerCode: string;
   storeName: string;
   distanceLabel: string;
-  hours: string;
+  /** Opening hours from OSM `opening_hours` tag (raw); may be undefined. */
+  hours?: string;
+  address?: string;
   lat: number;
   lng: number;
+  isConvenience?: boolean;
 }
 
-interface RetailerTemplate {
-  namePrefix: string;
-  /** Base distance in degrees (~km/111). Varies per postcode. */
-  baseDist: number;
-  hours: string;
-}
-
-const RETAILER_TEMPLATES: Record<string, RetailerTemplate> = {
-  coles: {
-    namePrefix: 'Coles',
-    baseDist: 0.012,
-    hours: 'Mon-Fri 6am-10pm · Sat-Sun 7am-10pm',
-  },
-  woolworths: {
-    namePrefix: 'Woolworths',
-    baseDist: 0.011,
-    hours: 'Mon-Fri 6am-10pm · Sat 7am-10pm · Sun 8am-9pm',
-  },
-  aldi: {
-    namePrefix: 'ALDI',
-    baseDist: 0.025,
-    hours: 'Mon-Wed 8:30am-7pm · Thu-Fri 8:30am-8pm · Sat 8am-5pm · Sun 11am-5pm',
-  },
-  iga: {
-    namePrefix: 'IGA',
-    baseDist: 0.018,
-    hours: 'Mon-Fri 7am-9pm · Sat-Sun 8am-8pm',
-  },
-};
-
-/**
- * Simple hash from a string → number between 0 and 1.
- * Used to vary store distances deterministically per postcode.
- */
-function simpleHash(s: string): number {
-  let h = 0;
-  for (let i = 0; i < s.length; i++) {
-    h = ((h << 5) - h + s.charCodeAt(i)) | 0;
-  }
-  return Math.abs(h % 1000) / 1000;
+/** Minimum subset of a real store needed to build offers. */
+export interface RealStoreLike {
+  id: number;
+  retailerCode: string;
+  isConvenience: boolean;
+  name: string;
+  lat: number;
+  lng: number;
+  address?: string;
+  openingHours?: string;
+  distanceKm?: number;
 }
 
 /**
- * Generate nearby stores for each retailer based on user's location.
- * Distances vary by postcode so different areas get different rankings.
- * Includes realistic store names, addresses, and opening hours.
+ * Pick the closest real store per retailer code that we have prices for.
+ * Returns one StoreInfo per retailer that has at least one nearby OSM hit.
+ * Convenience-format outlets are skipped for full-basket offers; they are
+ * surfaced separately for top-up shopping.
  */
-function generateNearbyStores(origin: { lat: number; lng: number }, postcode: string): StoreInfo[] {
-  // Use postcode to seed angle/distance variation per retailer
-  const retailers = Object.entries(RETAILER_TEMPLATES);
-  const stores: StoreInfo[] = [];
-
-  for (let i = 0; i < retailers.length; i++) {
-    const [retailerCode, template] = retailers[i]!;
-    // Each retailer gets a different angle/distance based on postcode
-    const seed = simpleHash(`${postcode}-${retailerCode}`);
-    const angle = seed * 2 * Math.PI;
-    // Distance varies: base ± 40% based on postcode
-    const distFactor = 0.6 + seed * 0.8; // 0.6x to 1.4x
-    const dist = template.baseDist * distFactor;
-
-    const dlat = dist * Math.cos(angle);
-    const dlng = dist * Math.sin(angle);
-
-    // Calculate actual distance for the label
-    const actualDistKm = haversineKm(origin, { lat: origin.lat + dlat, lng: origin.lng + dlng });
-
-    stores.push({
-      storeId: `${retailerCode}-${postcode}`,
-      retailerCode,
-      storeName: `Nearest ${template.namePrefix}`,
-      distanceLabel: `~${actualDistKm.toFixed(1)} km from you`,
-      hours: template.hours,
-      lat: origin.lat + dlat,
-      lng: origin.lng + dlng,
-    });
+function pickNearestPerRetailer(
+  origin: { lat: number; lng: number },
+  realStores: readonly RealStoreLike[],
+): StoreInfo[] {
+  const byRetailer = new Map<string, RealStoreLike>();
+  for (const s of realStores) {
+    // For the main basket optimiser we only want full-size supermarkets —
+    // a 7-Eleven won't carry a 5kg rice bag. Convenience hits still show
+    // on the map for context but don't participate in offer ranking.
+    if (s.isConvenience) continue;
+    const existing = byRetailer.get(s.retailerCode);
+    const d = s.distanceKm ?? haversineKm(origin, s);
+    if (!existing || d < (existing.distanceKm ?? haversineKm(origin, existing))) {
+      byRetailer.set(s.retailerCode, { ...s, distanceKm: d });
+    }
   }
 
-  return stores;
+  return Array.from(byRetailer.values()).map((s) => ({
+    storeId: `osm-${s.id}`,
+    retailerCode: s.retailerCode,
+    storeName: s.name,
+    distanceLabel: `${(s.distanceKm ?? 0).toFixed(1)} km from you`,
+    hours: s.openingHours,
+    address: s.address,
+    lat: s.lat,
+    lng: s.lng,
+    isConvenience: false,
+  }));
 }
 
-/** Global store cache so results page can look up store details by ID */
+/** Most recent assignment of nearest store per retailer, for the results UI. */
 let _lastStores: StoreInfo[] = [];
 
-export function getGeneratedStores(): StoreInfo[] {
+export function getNearestStores(): StoreInfo[] {
   return _lastStores;
 }
 
@@ -466,23 +437,41 @@ function haversineKm(a: { lat: number; lng: number }, b: { lat: number; lng: num
 }
 
 /**
- * Build the full offer list for the optimizer, relative to a user's origin.
- * Dynamically generates a nearby store per retailer so every postcode works.
+ * Build the full offer list for the optimizer.
+ *
+ * If `realStores` is provided we map each retailer to its closest real OSM
+ * store and use that for the storeId/location/distance. Retailers with no
+ * nearby OSM hit are excluded from the offer pool — we'd rather be honest
+ * than fake a location.
+ *
+ * If `realStores` is empty (e.g. Overpass is unreachable), we fall back to
+ * the user origin itself with `distanceKm = 0` so the optimiser still has
+ * something to chew on — the UI flags this case as "estimated".
  */
-export function buildOffers(origin: { lat: number; lng: number }, postcode = '2000'): OptimiserOffer[] {
-  const nearbyStores = generateNearbyStores(origin, postcode);
-  _lastStores = nearbyStores; // cache for UI to read store details
+export function buildOffers(
+  origin: { lat: number; lng: number },
+  realStores: readonly RealStoreLike[] = [],
+): OptimiserOffer[] {
+  const nearbyStores = pickNearestPerRetailer(origin, realStores);
+  _lastStores = nearbyStores;
   const storeByRetailer = new Map<string, StoreInfo>();
   for (const s of nearbyStores) {
     storeByRetailer.set(s.retailerCode, s);
   }
 
-  return PRICE_MATRIX.map((pe) => {
+  const haveRealData = nearbyStores.length > 0;
+
+  return PRICE_MATRIX.flatMap((pe) => {
     const store = storeByRetailer.get(pe.retailerCode);
     const product = CATALOGUE_PRODUCTS.find((p) => p.id === pe.productId)!;
+
+    // If we have real data and there's no store of this retailer nearby,
+    // skip — be honest rather than fake a store.
+    if (haveRealData && !store) return [];
+
     const dist = store ? haversineKm(origin, store) : 0;
 
-    return {
+    return [{
       retailerCode: pe.retailerCode,
       retailerProductId: `${pe.retailerCode}-${pe.productId}`,
       productId: pe.productId,
@@ -494,6 +483,6 @@ export function buildOffers(origin: { lat: number; lng: number }, postcode = '20
       isTrueSpecial: pe.isTrueSpecial,
       memberOnly: pe.memberOnly,
       inStock: true,
-    };
+    }];
   });
 }

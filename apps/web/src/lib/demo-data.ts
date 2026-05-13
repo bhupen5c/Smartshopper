@@ -144,8 +144,8 @@ export interface DemoStat {
 }
 
 export const DEMO_STATS: DemoStat[] = [
-  { label: 'Retailers tracked', value: '4', sub: 'Coles · Woolies · ALDI · IGA' },
-  { label: 'Products under watch', value: '45,200+', sub: 'Updated nightly' },
+  { label: 'Retailers tracked', value: '10+', sub: 'Coles · Woolies · ALDI · IGA · 7-Eleven · NightOwl · FoodWorks · Costco' },
+  { label: 'Real store data', value: 'OpenStreetMap', sub: 'Live store name, address, hours, distance' },
   { label: 'True-special accuracy', value: '91%', sub: 'Validated against 180-day lows' },
   { label: 'Avg. basket savings', value: '18%', sub: 'Per week vs single-store shop' },
 ];

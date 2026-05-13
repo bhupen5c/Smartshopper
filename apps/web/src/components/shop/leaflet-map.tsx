@@ -5,13 +5,7 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { useEffect } from 'react';
 import type { RealStore } from '@/lib/overpass';
-
-const RETAILER_MARKER_COLORS: Record<string, string> = {
-  coles: '#dc2626',
-  woolworths: '#16a34a',
-  aldi: '#2563eb',
-  iga: '#ea580c',
-};
+import { RETAILER_MARKER_COLORS } from '@/lib/retailers';
 
 function createMarkerIcon(color: string, isSelected: boolean) {
   const size = isSelected ? 14 : 10;

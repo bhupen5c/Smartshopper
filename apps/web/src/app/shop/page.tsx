@@ -109,8 +109,8 @@ export default function ShopPage() {
       <div className="mt-12 grid grid-cols-3 gap-4 text-center">
         {[
           { icon: TrendingDown, label: 'Find real specials', sub: 'Not cosmetic discounts' },
-          { icon: ShoppingCart, label: 'Optimise your basket', sub: 'Across Coles, Woolies, ALDI, IGA' },
-          { icon: Truck, label: 'Delivery or pickup?', sub: 'Based on your actual cost' },
+          { icon: ShoppingCart, label: 'Optimise your basket', sub: 'Coles · Woolies · ALDI · IGA + convenience' },
+          { icon: Truck, label: 'Delivery or pickup?', sub: 'Based on real store distance' },
         ].map(({ icon: Icon, label, sub }, i) => (
           <motion.div
             key={label}
