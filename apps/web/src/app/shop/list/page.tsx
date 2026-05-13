@@ -137,19 +137,24 @@ export default function ShopListPage() {
   }
 
   return (
-    <div className="max-w-2xl mx-auto space-y-6">
+    <div className="mx-auto max-w-2xl space-y-6 px-6 py-8">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Your Shopping List</h1>
-        <p className="text-sm text-gray-500 mt-1">
-          <MapPin className="h-3 w-3 inline mr-1" />
+        <div className="font-mono text-xs uppercase tracking-[0.14em] text-ink/70">
+          ◉ YOUR LIST · {suburb}
+        </div>
+        <h1 className="bignum mt-2 text-[clamp(36px,6vw,56px)] leading-[0.95]">
+          BUILD A <span className="mark-lime">SMART</span> LIST
+        </h1>
+        <p className="mt-2 text-sm text-ink/70">
+          <MapPin className="mr-1 inline size-3" />
           {suburb} ({postcode})
         </p>
       </div>
 
-      {/* Search / Add bar */}
+      {/* Search / Add bar — brutalist pill */}
       <div className="relative">
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+        <div className="flex items-center gap-2 rounded-full border-[1.5px] border-ink bg-paper p-2 pl-5 shadow-brut">
+          <Search className="size-4 text-ink/50" />
           <input
             type="text"
             value={query}
@@ -161,7 +166,7 @@ export default function ShopListPage() {
             }}
             onFocus={() => setShowSuggestions(true)}
             placeholder="What do you need? (e.g. Tim Tam, hair products, dinner ideas)"
-            className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none"
+            className="flex-1 bg-transparent py-2 text-sm font-medium outline-none placeholder:text-ink/30"
           />
         </div>
 
@@ -432,10 +437,10 @@ export default function ShopListPage() {
       {items.filter((i) => i.productId || i.genericType).length > 0 && (
         <button
           onClick={() => router.push('/shop/results')}
-          className="w-full py-3.5 bg-emerald-600 hover:bg-emerald-700 text-white font-medium rounded-xl transition-colors flex items-center justify-center gap-2"
+          className="btn-lime w-full justify-center"
         >
-          <Zap className="h-4 w-4" />
-          Find Best Deals ({items.filter((i) => i.productId || i.genericType).length} items)
+          <Zap className="size-4" />
+          Find Best Deals ({items.filter((i) => i.productId || i.genericType).length} items) →
         </button>
       )}
     </div>

@@ -1,0 +1,280 @@
+/* ===================================================================
+   SMARTSHOPPER · design tokens + shared bits
+   =================================================================== */
+
+:root {
+  --cream: #F7F2E7;
+  --cream-2: #EFE9D9;
+  --ink: #0F0F0E;
+  --ink-70: rgba(15,15,14,0.7);
+  --ink-40: rgba(15,15,14,0.4);
+  --ink-15: rgba(15,15,14,0.15);
+  --ink-08: rgba(15,15,14,0.08);
+
+  --lime: #DCFF3D;
+  --lime-deep: #B9DC1F;
+  --tomato: #FF4D2E;
+  --tomato-deep: #E03A1C;
+  --cobalt: #2A3CFF;
+  --cobalt-deep: #1A28C9;
+  --paper: #FFFDF7;
+
+  --r-sm: 8px;
+  --r-md: 14px;
+  --r-lg: 22px;
+  --r-xl: 32px;
+
+  --display: 'Boldonse', 'Bricolage Grotesque', sans-serif;
+  --ui: 'Bricolage Grotesque', system-ui, sans-serif;
+  --mono: 'JetBrains Mono', 'IBM Plex Mono', monospace;
+}
+
+* { box-sizing: border-box; }
+
+.ss-board {
+  background: var(--cream);
+  color: var(--ink);
+  font-family: var(--ui);
+  width: 100%;
+  height: 100%;
+  position: relative;
+  overflow: hidden;
+}
+
+/* paper / cream grain — extremely subtle */
+.ss-grain::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: radial-gradient(rgba(15,15,14,0.04) 1px, transparent 1px);
+  background-size: 3px 3px;
+  opacity: 0.4;
+  pointer-events: none;
+}
+
+/* tape strip */
+.tape {
+  position: absolute;
+  background: rgba(255, 220, 100, 0.55);
+  border: 1px dashed rgba(15,15,14,0.15);
+  width: 90px;
+  height: 24px;
+  transform: rotate(-4deg);
+  z-index: 5;
+}
+
+/* ─────────────────  NAV (shared)  ───────────────── */
+.ss-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 22px 40px;
+  border-bottom: 1.5px solid var(--ink);
+  background: var(--cream);
+  position: relative;
+  z-index: 4;
+}
+.ss-nav__logo {
+  font-family: var(--display);
+  font-size: 24px;
+  letter-spacing: -0.02em;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.ss-nav__logo .dot {
+  width: 14px; height: 14px;
+  background: var(--tomato);
+  border-radius: 50%;
+  display: inline-block;
+  box-shadow: 0 0 0 4px var(--lime);
+}
+.ss-nav__links {
+  display: flex;
+  gap: 28px;
+  font-family: var(--ui);
+  font-size: 14px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.ss-nav__links a { color: var(--ink); text-decoration: none; }
+.ss-nav__links a.active {
+  background: var(--ink);
+  color: var(--cream);
+  padding: 4px 10px;
+  border-radius: 100px;
+}
+.ss-nav__cta {
+  background: var(--ink);
+  color: var(--cream);
+  padding: 10px 18px;
+  border-radius: 100px;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.ss-nav__cta .arrow {
+  display: inline-block;
+  width: 18px; height: 18px;
+  background: var(--lime);
+  color: var(--ink);
+  border-radius: 50%;
+  text-align: center;
+  font-size: 11px;
+  line-height: 18px;
+}
+
+/* ─────────────────  TICKER (shared)  ───────────────── */
+.ticker {
+  display: flex;
+  gap: 32px;
+  align-items: center;
+  padding: 10px 0;
+  background: var(--ink);
+  color: var(--cream);
+  font-family: var(--mono);
+  font-size: 13px;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  overflow: hidden;
+}
+.ticker__track {
+  display: flex;
+  gap: 32px;
+  animation: ticker 40s linear infinite;
+  flex-shrink: 0;
+}
+.ticker__item { display: inline-flex; align-items: center; gap: 10px; }
+.ticker__item .up { color: var(--tomato); }
+.ticker__item .down { color: var(--lime); }
+@keyframes ticker {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+
+/* ─────────────────  buttons  ───────────────── */
+.btn-lime {
+  background: var(--lime);
+  color: var(--ink);
+  border: 1.5px solid var(--ink);
+  border-radius: 100px;
+  padding: 16px 28px;
+  font-family: var(--ui);
+  font-weight: 700;
+  font-size: 16px;
+  letter-spacing: 0.02em;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  box-shadow: 4px 4px 0 var(--ink);
+  transition: transform .15s ease, box-shadow .15s ease;
+}
+.btn-lime:hover { transform: translate(-2px,-2px); box-shadow: 6px 6px 0 var(--ink); }
+.btn-ink {
+  background: var(--ink);
+  color: var(--cream);
+  border: 1.5px solid var(--ink);
+  border-radius: 100px;
+  padding: 16px 28px;
+  font-family: var(--ui);
+  font-weight: 600;
+  font-size: 15px;
+}
+.btn-outline {
+  background: transparent;
+  color: var(--ink);
+  border: 1.5px solid var(--ink);
+  border-radius: 100px;
+  padding: 14px 24px;
+  font-family: var(--ui);
+  font-weight: 500;
+  font-size: 14px;
+}
+
+/* ─────────────────  chip / badge  ───────────────── */
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  border-radius: 100px;
+  border: 1px solid var(--ink);
+  font-family: var(--ui);
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  background: var(--cream);
+}
+.chip--lime { background: var(--lime); }
+.chip--tomato { background: var(--tomato); color: var(--cream); border-color: var(--ink); }
+.chip--ink { background: var(--ink); color: var(--cream); }
+
+/* ─────────────────  big number  ───────────────── */
+.bignum {
+  font-family: var(--display);
+  font-weight: 400;
+  line-height: 0.9;
+  letter-spacing: -0.04em;
+}
+
+/* dotted divider */
+.dot-rule {
+  border-top: 1.5px dashed var(--ink);
+}
+
+/* underline mark */
+.mark-lime {
+  background: linear-gradient(transparent 55%, var(--lime) 55%);
+  padding: 0 2px;
+}
+.mark-tomato {
+  background: linear-gradient(transparent 55%, var(--tomato) 55%);
+  color: var(--ink);
+  padding: 0 2px;
+}
+
+/* receipt look */
+.receipt {
+  background: var(--paper);
+  border: 1.5px solid var(--ink);
+  border-radius: var(--r-md);
+  box-shadow: 6px 6px 0 var(--ink);
+  font-family: var(--mono);
+  font-size: 13px;
+}
+.receipt__row {
+  display: flex;
+  justify-content: space-between;
+  padding: 10px 18px;
+  border-bottom: 1px dashed var(--ink-15);
+}
+.receipt__row:last-child { border-bottom: none; }
+
+/* store pill */
+.store {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--ui);
+  font-weight: 600;
+  font-size: 13px;
+  letter-spacing: 0.02em;
+}
+.store__bug {
+  width: 26px; height: 26px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--display);
+  font-size: 12px;
+  color: var(--ink);
+  border: 1.5px solid var(--ink);
+}

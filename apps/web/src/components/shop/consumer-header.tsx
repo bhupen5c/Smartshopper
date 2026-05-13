@@ -8,28 +8,42 @@ export function ConsumerHeader() {
   const { items } = useShop();
 
   return (
-    <header className="sticky top-0 z-50 bg-white border-b border-gray-200">
-      <div className="max-w-5xl mx-auto px-4 h-14 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <Link href="/" className="text-gray-400 hover:text-gray-600 transition-colors">
-            <ArrowLeft className="h-4 w-4" />
-          </Link>
-          <Link href="/shop" className="text-lg font-bold text-emerald-600">
-            SmartShopper
-          </Link>
-        </div>
+    <header className="ss-nav sticky top-0">
+      <div className="flex items-center gap-3">
         <Link
-          href="/shop/list"
-          className="flex items-center gap-2 px-3 py-1.5 text-sm text-gray-600 hover:text-gray-900 transition-colors"
+          href="/"
+          aria-label="Back to home"
+          className="text-ink/50 transition-opacity hover:opacity-100"
         >
-          <ShoppingCart className="h-4 w-4" />
-          {items.length > 0 && (
-            <span className="bg-emerald-100 text-emerald-700 text-xs font-medium px-1.5 py-0.5 rounded-full">
-              {items.length}
-            </span>
-          )}
+          <ArrowLeft className="size-4" />
+        </Link>
+        <Link href="/shop" className="ss-nav__logo">
+          <span className="dot" />
+          <span>
+            SMARTSHOPPER<span style={{ color: 'var(--tomato)' }}>.</span>
+          </span>
         </Link>
       </div>
+
+      <Link
+        href="/shop/list"
+        className="ss-nav__cta"
+        style={{
+          background: items.length > 0 ? 'var(--lime)' : 'var(--ink)',
+          color: items.length > 0 ? 'var(--ink)' : 'var(--cream)',
+          borderRadius: 100,
+          border: '1.5px solid var(--ink)',
+        }}
+      >
+        <ShoppingCart className="size-4" />
+        {items.length > 0 ? (
+          <span>
+            {items.length} item{items.length !== 1 ? 's' : ''}
+          </span>
+        ) : (
+          <span>List</span>
+        )}
+      </Link>
     </header>
   );
 }
