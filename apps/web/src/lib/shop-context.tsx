@@ -3,6 +3,7 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { lookupPostcode } from './postcodes';
 import type { RealStore } from './overpass';
+import type { LivePriceEntry } from './catalogue';
 
 // ─── Types ───
 
@@ -51,6 +52,8 @@ interface ShopContextValue extends ShopState {
   nearbyStores: RealStore[];
   storesLoading: boolean;
   storesError: boolean;
+  /** Latest scraped prices from Supabase. Empty → fall back to PRICE_MATRIX. */
+  livePrices: LivePriceEntry[];
 }
 
 // ─── Defaults ───
@@ -98,6 +101,7 @@ export function ShopProvider({ children }: { children: React.ReactNode }) {
   const [nearbyStores, setNearbyStores] = useState<RealStore[]>([]);
   const [storesLoading, setStoresLoading] = useState(false);
   const [storesError, setStoresError] = useState(false);
+  const [livePrices, setLivePrices] = useState<LivePriceEntry[]>([]);
   const skipPersist = useRef(true);
 
   // Hydrate from localStorage on mount
@@ -161,6 +165,32 @@ export function ShopProvider({ children }: { children: React.ReactNode }) {
     return () => { cancelled = true; };
   }, [lat, lng]);
 
+  // Fetch live scraped prices once on mount. If Supabase isn't configured
+  // or the request fails, the array stays empty and buildOffers() falls
+  // back to the in-repo PRICE_MATRIX.
+  useEffect(() => {
+    let cancelled = false;
+    fetch('/api/prices')
+      .then((r) => (r.ok ? r.json() : Promise.reject(r.status)))
+      .then((data: { prices?: Array<{ retailerCode: string; productId: string; price: number; isTrueSpecial: boolean; memberOnly: boolean }> }) => {
+        if (cancelled) return;
+        const rows = data.prices ?? [];
+        setLivePrices(
+          rows.map((p) => ({
+            retailerCode: p.retailerCode,
+            productId: p.productId,
+            price: Number(p.price),
+            isTrueSpecial: Boolean(p.isTrueSpecial),
+            memberOnly: Boolean(p.memberOnly),
+          })),
+        );
+      })
+      .catch(() => {
+        // Quiet fall-through to PRICE_MATRIX — not worth surfacing.
+      });
+    return () => { cancelled = true; };
+  }, []);
+
   const setPostcode = useCallback((postcode: string) => {
     const entry = lookupPostcode(postcode);
     setState((prev) => ({
@@ -217,6 +247,7 @@ export function ShopProvider({ children }: { children: React.ReactNode }) {
         nearbyStores,
         storesLoading,
         storesError,
+        livePrices,
       }}
     >
       {children}

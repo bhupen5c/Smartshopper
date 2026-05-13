@@ -7,7 +7,7 @@ delete process.env.__NEXT_PRIVATE_RENDER_WORKER_CONFIG;
 module.exports = {
   reactStrictMode: true,
   poweredByHeader: false,
-  transpilePackages: ['@smartshopper/core', '@smartshopper/types'],
+  transpilePackages: ['@smartshopper/core', '@smartshopper/scraper', '@smartshopper/types'],
   images: {
     remotePatterns: [
       { protocol: 'https', hostname: 'shop.coles.com.au' },

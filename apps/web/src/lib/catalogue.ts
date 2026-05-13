@@ -574,6 +574,15 @@ function haversineKm(a: { lat: number; lng: number }, b: { lat: number; lng: num
   return R * 2 * Math.atan2(Math.sqrt(h), Math.sqrt(1 - h));
 }
 
+/** Live-price row from /api/prices — matches PriceEntry shape so the source can be swapped. */
+export interface LivePriceEntry {
+  productId: string;
+  retailerCode: string;
+  price: number;
+  isTrueSpecial: boolean;
+  memberOnly: boolean;
+}
+
 /**
  * Build the full offer list for the optimizer.
  *
@@ -585,10 +594,15 @@ function haversineKm(a: { lat: number; lng: number }, b: { lat: number; lng: num
  * If `realStores` is empty (e.g. Overpass is unreachable), we fall back to
  * the user origin itself with `distanceKm = 0` so the optimiser still has
  * something to chew on — the UI flags this case as "estimated".
+ *
+ * `livePrices` (optional) replaces the in-repo PRICE_MATRIX with scraped
+ * prices from Supabase when /api/prices returns rows. Pass an empty array
+ * (or omit) to fall back to PRICE_MATRIX — useful for offline/dev/CI.
  */
 export function buildOffers(
   origin: { lat: number; lng: number },
   realStores: readonly RealStoreLike[] = [],
+  livePrices?: readonly LivePriceEntry[],
 ): OptimiserOffer[] {
   const nearbyStores = pickNearestPerRetailer(origin, realStores);
   _lastStores = nearbyStores;
@@ -598,10 +612,18 @@ export function buildOffers(
   }
 
   const haveRealData = nearbyStores.length > 0;
+  // Use live scraped prices when available; otherwise fall back to the
+  // in-repo PRICE_MATRIX. The shape is identical so the rest of the
+  // function doesn't care.
+  const priceSource: readonly { productId: string; retailerCode: string; price: number; isTrueSpecial: boolean; memberOnly: boolean }[] =
+    livePrices && livePrices.length > 0 ? livePrices : PRICE_MATRIX;
 
-  return PRICE_MATRIX.flatMap((pe) => {
+  return priceSource.flatMap((pe) => {
     const store = storeByRetailer.get(pe.retailerCode);
-    const product = CATALOGUE_PRODUCTS.find((p) => p.id === pe.productId)!;
+    const product = CATALOGUE_PRODUCTS.find((p) => p.id === pe.productId);
+    // Skip orphan prices for products we don't have in the catalogue.
+    // Happens when the scraper finds a SKU we haven't seeded yet.
+    if (!product) return [];
 
     // If we have real data and there's no store of this retailer nearby,
     // skip — be honest rather than fake a store.
