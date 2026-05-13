@@ -82,6 +82,35 @@ describe('delivery recommender', () => {
     expect(ranked[0]!.loyaltyRebate).toBe(0);
   });
 
+  it('closer walkable store beats farther walkable store even when both are under 2 km', () => {
+    // Regression: previously walkable stores got travelCost = 0 unconditionally,
+    // so a Coles 1.5 km away tied with a Woolies 0.3 km away on travel cost.
+    // A small "carry-home effort" cost now scales with distance even when walking.
+    const CLOSER = { lat: -37.815, lng: 144.964 }; // ~0.3 km from CBD
+    const FARTHER = { lat: -37.827, lng: 144.971 }; // ~1.7 km from CBD
+    const closer = recommendFulfilment({
+      retailerCode: 'woolworths',
+      storeLocation: CLOSER,
+      origin: MELBOURNE_CBD,
+      basketSubtotal: 60,
+      policy: DEFAULT_DELIVERY_POLICIES.woolworths!,
+      fuelCostPerKm: 0.88,
+      timeValuePerHour: 25,
+    }).find((q) => q.mode === 'in_store_pickup')!;
+    const farther = recommendFulfilment({
+      retailerCode: 'coles',
+      storeLocation: FARTHER,
+      origin: MELBOURNE_CBD,
+      basketSubtotal: 60,
+      policy: DEFAULT_DELIVERY_POLICIES.coles!,
+      fuelCostPerKm: 0.88,
+      timeValuePerHour: 25,
+    }).find((q) => q.mode === 'in_store_pickup')!;
+    expect(closer.distanceKm).toBeLessThan(farther.distanceKm);
+    expect(farther.travelCost).toBeGreaterThan(closer.travelCost);
+    expect(farther.totalCost).toBeGreaterThan(closer.totalCost);
+  });
+
   it('distance absolutely factors into total cost when driving (user-asked)', () => {
     // Isolate the effect of distance by forcing in-store pickup for both cases.
     // We use the internal quoting function directly so we can pin the mode.
