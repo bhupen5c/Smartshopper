@@ -424,6 +424,113 @@ const PRICE_MATRIX: PriceEntry[] = [
   { productId: 'p74', retailerCode: 'woolworths', price: 7.50, isTrueSpecial: true, memberOnly: false },
 ];
 
+// ─── Convenience-store prices (display-only) ───
+// We don't have full baskets at servos / corner shops, but they do carry
+// top-up items at a premium. Surfacing these prices lets users see what
+// they'd pay at 7-Eleven / BP / Ampol if they grabbed the item there in
+// a pinch. These are NOT fed into the optimiser — they only appear in
+// the per-line price-comparison strip.
+
+interface ConveniencePrice {
+  productId: string;
+  retailerCode: string;
+  price: number;
+}
+
+const CONVENIENCE_PRICES: ConveniencePrice[] = [
+  // Milk 2L — typical conv markup is ~50% on dairy
+  { productId: 'p01', retailerCode: 'seven_eleven', price: 5.50 },
+  { productId: 'p01', retailerCode: 'bp', price: 5.80 },
+  { productId: 'p01', retailerCode: 'ampol', price: 5.80 },
+  { productId: 'p01', retailerCode: 'otr', price: 5.20 },
+  // Tip Top Bread 700g
+  { productId: 'p05', retailerCode: 'seven_eleven', price: 5.50 },
+  { productId: 'p05', retailerCode: 'bp', price: 5.80 },
+  { productId: 'p05', retailerCode: 'otr', price: 5.20 },
+  // Tim Tams 200g — conv stores typically charge full RRP
+  { productId: 'p09', retailerCode: 'seven_eleven', price: 5.80 },
+  { productId: 'p09', retailerCode: 'bp', price: 6.00 },
+  { productId: 'p09', retailerCode: 'ampol', price: 6.00 },
+  { productId: 'p09', retailerCode: 'nightowl', price: 5.50 },
+  // Smith's chips 170g — common grab-and-go
+  { productId: 'p11', retailerCode: 'seven_eleven', price: 5.20 },
+  { productId: 'p11', retailerCode: 'bp', price: 5.50 },
+  { productId: 'p11', retailerCode: 'ampol', price: 5.50 },
+  { productId: 'p11', retailerCode: 'nightowl', price: 5.00 },
+  { productId: 'p11', retailerCode: 'lucky_7', price: 4.80 },
+  // Cadbury Dairy Milk Block 180g
+  { productId: 'p12', retailerCode: 'seven_eleven', price: 5.50 },
+  { productId: 'p12', retailerCode: 'bp', price: 5.80 },
+  { productId: 'p12', retailerCode: 'ampol', price: 5.80 },
+  { productId: 'p12', retailerCode: 'nightowl', price: 5.20 },
+  // Coca-Cola 2L
+  { productId: 'p14', retailerCode: 'seven_eleven', price: 4.20 },
+  { productId: 'p14', retailerCode: 'bp', price: 4.50 },
+  { productId: 'p14', retailerCode: 'ampol', price: 4.50 },
+  { productId: 'p14', retailerCode: 'shell', price: 4.50 },
+  { productId: 'p14', retailerCode: 'mobil', price: 4.50 },
+  { productId: 'p14', retailerCode: 'otr', price: 4.00 },
+  // Pepsi Max 2L
+  { productId: 'p15', retailerCode: 'seven_eleven', price: 4.20 },
+  { productId: 'p15', retailerCode: 'bp', price: 4.50 },
+  // Mount Franklin Water 6pk — single-bottle conv pricing
+  { productId: 'p16', retailerCode: 'seven_eleven', price: 7.50 },
+  { productId: 'p16', retailerCode: 'bp', price: 7.80 },
+  // Tuna can — convenience for lunch
+  { productId: 'p25', retailerCode: 'seven_eleven', price: 3.50 },
+  { productId: 'p25', retailerCode: 'bp', price: 3.80 },
+  // Eggs 12pk
+  { productId: 'p38', retailerCode: 'seven_eleven', price: 7.50 },
+  { productId: 'p38', retailerCode: 'otr', price: 7.00 },
+  // Instant coffee Nescafe — small jar conv style
+  { productId: 'p36', retailerCode: 'seven_eleven', price: 24.00 },
+  // Colgate toothpaste — toiletries pickup
+  { productId: 'p35', retailerCode: 'seven_eleven', price: 8.50 },
+  { productId: 'p35', retailerCode: 'bp', price: 8.80 },
+];
+
+export interface PriceQuote {
+  productId: string;
+  retailerCode: string;
+  price: number;
+  isTrueSpecial: boolean;
+  memberOnly: boolean;
+  isConvenience: boolean;
+}
+
+/**
+ * Return every known price for a product — across supermarkets (from
+ * PRICE_MATRIX) and convenience stores (from CONVENIENCE_PRICES).
+ * Sorted cheapest-first. Used by the UI to render the "all prices"
+ * strip under each line item.
+ */
+export function getAllPricesFor(productId: string): PriceQuote[] {
+  const quotes: PriceQuote[] = [];
+  for (const pe of PRICE_MATRIX) {
+    if (pe.productId !== productId) continue;
+    quotes.push({
+      productId: pe.productId,
+      retailerCode: pe.retailerCode,
+      price: pe.price,
+      isTrueSpecial: pe.isTrueSpecial,
+      memberOnly: pe.memberOnly,
+      isConvenience: false,
+    });
+  }
+  for (const cp of CONVENIENCE_PRICES) {
+    if (cp.productId !== productId) continue;
+    quotes.push({
+      productId: cp.productId,
+      retailerCode: cp.retailerCode,
+      price: cp.price,
+      isTrueSpecial: false,
+      memberOnly: false,
+      isConvenience: true,
+    });
+  }
+  return quotes.sort((a, b) => a.price - b.price);
+}
+
 // ─── Build Offers (matching OptimiserOffer shape) ───
 
 function haversineKm(a: { lat: number; lng: number }, b: { lat: number; lng: number }): number {

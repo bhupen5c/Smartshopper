@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { ArrowLeft, ShoppingCart, Truck, MapPin, Award, AlertTriangle, Star, Clock, Loader2 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useShop } from '@/lib/shop-context';
-import { buildOffers, CATALOGUE_PRODUCTS, getNearestStores } from '@/lib/catalogue';
+import { buildOffers, CATALOGUE_PRODUCTS, getNearestStores, getAllPricesFor } from '@/lib/catalogue';
 import { formatAUD } from '@/lib/utils';
 import { optimiseBasket } from '@smartshopper/core/basket';
 import { recommendFulfilment } from '@smartshopper/core/delivery';
@@ -569,6 +569,8 @@ function PlanCard({
       <div className="bg-paper">
         {plan.lines.map((line, i) => {
           const alt = plan.lineAlternatives?.find((a) => a.listItemId === line.listItemId);
+          const allPrices = getAllPricesFor(line.productId);
+          const hasConvenience = allPrices.some((p) => p.isConvenience);
           return (
             <div
               key={line.listItemId}
@@ -608,6 +610,34 @@ function PlanCard({
                   </span>
                 </div>
               </div>
+
+              {/* All-retailer price comparison strip — every retailer (incl. convenience stores) that carries this product. */}
+              {allPrices.length > 1 && (
+                <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 font-mono text-[10px] text-ink/55">
+                  <span className="uppercase tracking-wider text-ink/40">All prices:</span>
+                  {allPrices.map((p, idx) => {
+                    const isChosen = p.retailerCode === line.retailerCode && !p.isConvenience;
+                    return (
+                      <span
+                        key={`${p.retailerCode}-${idx}`}
+                        className={isChosen ? 'font-bold text-ink' : ''}
+                        style={{ color: p.isConvenience ? 'var(--ink-40)' : undefined }}
+                      >
+                        {RETAILER_NAMES[p.retailerCode] ?? p.retailerCode}{' '}
+                        <span className={p.isConvenience ? '' : 'text-ink/80'}>
+                          ${p.price.toFixed(2)}
+                        </span>
+                        {p.isTrueSpecial && <span style={{ color: 'var(--tomato)' }}>✦</span>}
+                        {p.isConvenience && <span>*</span>}
+                      </span>
+                    );
+                  })}
+                  {hasConvenience && (
+                    <span className="text-ink/40 italic">* convenience, premium</span>
+                  )}
+                </div>
+              )}
+
               {alt && (
                 <div
                   className="ml-0.5 mt-1 flex items-center gap-1 text-[11px] font-medium"
