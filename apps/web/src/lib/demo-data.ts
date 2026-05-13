@@ -144,7 +144,7 @@ export interface DemoStat {
 }
 
 export const DEMO_STATS: DemoStat[] = [
-  { label: 'Retailers tracked', value: '10+', sub: 'Coles · Woolies · ALDI · IGA · 7-Eleven · NightOwl · FoodWorks · Costco' },
+  { label: 'Retailers tracked', value: '20+', sub: 'Coles · Woolies · ALDI · IGA · Foodland · Drakes · Costco · Harris Farm · Spudshed · Ritchies · 7-Eleven · OTR · BP · Ampol · Shell + more' },
   { label: 'Real store data', value: 'OpenStreetMap', sub: 'Live store name, address, hours, distance' },
   { label: 'True-special accuracy', value: '91%', sub: 'Validated against 180-day lows' },
   { label: 'Avg. basket savings', value: '18%', sub: 'Per week vs single-store shop' },
