@@ -25,10 +25,10 @@ const LIVE_COMPARISON = [
 ];
 
 const VALUE_PROPS: Array<[string, string, string]> = [
-  ['01', 'Search anything', 'A product name, a barcode, even a recipe.'],
-  ['02', 'See every price', 'Sorted lowest first. Real OSM store distance.'],
-  ['03', 'Skip the loyalty cards', 'Flybuys + Rewards rebates applied automatically.'],
-  ['04', 'Buy or save', 'Add to list, set an alert, or click to checkout.'],
+  ['01', 'Search the catalogue', 'Brand names or generic queries like "haloumi" or "shampoo".'],
+  ['02', 'Build a list', 'Adjust quantities, mark generics, save loyalty memberships.'],
+  ['03', 'Compare across retailers', 'Optimiser picks the cheapest basket within your travel budget.'],
+  ['04', 'See real store details', 'Name, address, hours and distance from OpenStreetMap.'],
 ];
 
 export function Hero() {
@@ -64,8 +64,8 @@ export function Hero() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.4 }}
           >
-            <span className="ss-chip ss-chip--lime">↓ 18% avg basket save</span>
-            <span className="ss-chip">Real OSM data</span>
+            <span className="ss-chip ss-chip--lime">Open preview</span>
+            <span className="ss-chip">Real OSM store data</span>
           </motion.div>
 
           <motion.h1
@@ -87,9 +87,9 @@ export function Hero() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 0.3 }}
           >
-            SmartShopper compares <span className="mark-lime"><b>20+ retailers</b></span> in
-            real time so you always buy at the bottom of the price curve. One search. Every
-            store. Zero spreadsheets.
+            SmartShopper compares prices across <span className="mark-lime"><b>20+ AU retailers</b></span>{' '}
+            from public catalogues and uses real OpenStreetMap data for nearby stores. One list.
+            Real distances. No fake specials.
           </motion.p>
 
           <motion.div
@@ -99,14 +99,14 @@ export function Hero() {
             transition={{ duration: 0.5, delay: 0.4 }}
           >
             <Link href="/shop" className="btn-lime">
-              Compare a product →
+              Compare a basket →
             </Link>
-            <Link href="#specials" className="btn-outline">
-              See live specials
+            <Link href="/shop/list" className="btn-outline">
+              Build a list
             </Link>
           </motion.div>
 
-          {/* Avatar strip */}
+          {/* Honest "what's here today" strip — no fake reviews. */}
           <motion.div
             className="mt-9 flex items-center gap-3.5"
             initial={{ opacity: 0 }}
@@ -123,8 +123,8 @@ export function Hero() {
               ))}
             </div>
             <div className="text-sm leading-tight">
-              <div className="font-semibold">★★★★★ 4.9 · 18,402 reviews</div>
-              <div className="text-ink/70">&ldquo;Cancelled three subscriptions.&rdquo; — Wirecutter</div>
+              <div className="font-semibold">Open preview · no reviews yet</div>
+              <div className="text-ink/70">Public catalogues only · no member-pricing claims.</div>
             </div>
           </motion.div>
         </div>
@@ -144,11 +144,11 @@ export function Hero() {
             <div className="flex items-baseline justify-between">
               <div>
                 <div className="text-[11px] uppercase tracking-[0.12em] text-ink/70">
-                  Live comparison · 0.41s
+                  Example comparison
                 </div>
                 <div className="bignum mt-1.5 text-[28px]">Tim Tam Original 200g</div>
               </div>
-              <span className="ss-chip ss-chip--tomato">⬤ live</span>
+              <span className="ss-chip ss-chip--tomato">demo</span>
             </div>
 
             <div className="mt-5 flex flex-col gap-2.5">
@@ -197,7 +197,7 @@ export function Hero() {
             className="absolute -bottom-5 -left-7 rounded-full border-[1.5px] border-ink bg-cobalt px-4 py-2.5 text-[12px] font-semibold uppercase tracking-[0.08em] text-cream shadow-brut"
             style={{ transform: 'rotate(-6deg)' }}
           >
-            ★ 20+ stores · OSM live
+            ★ 20+ retailers · OSM-powered
           </div>
         </motion.div>
       </div>

@@ -5,9 +5,7 @@ import { usePathname } from 'next/navigation';
 
 const NAV_LINKS = [
   { href: '/shop', label: 'Compare' },
-  { href: '/savings', label: 'Deals' },
-  { href: '/shop/list', label: 'Lists' },
-  { href: '/app', label: 'How it works' },
+  { href: '/shop/list', label: 'List' },
 ];
 
 export function SiteHeader() {
