@@ -81,9 +81,11 @@ export function Hero() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 0.4 }}
           >
-            SmartShopper tracks every price at Coles, Woolworths, ALDI and IGA over time, flags
-            genuinely low prices, forecasts the next cycle drop, optimises your basket across
-            retailers, and tells you whether delivery or click-and-collect actually saves you money.
+            SmartShopper tracks every price at Coles, Woolworths, ALDI, IGA and 15+ other
+            Australian chains — including indies like Foodland and Drakes and convenience names
+            like 7-Eleven, BP and OTR. It flags genuinely low prices, forecasts the next cycle
+            drop, optimises your basket across retailers, and tells you whether delivery or
+            click-and-collect actually saves you money.
           </motion.p>
 
           <motion.div
@@ -116,7 +118,7 @@ export function Hero() {
             transition={{ duration: 0.5, delay: 0.8 }}
           >
             {[
-              { label: 'Retailers tracked', value: 4, suffix: '', sub: 'Coles · Woolies · ALDI · IGA' },
+              { label: 'Retailers tracked', value: 20, suffix: '+', sub: 'Big 4 · Foodland · Drakes · Costco · 7-Eleven · BP · OTR & more' },
               { label: 'Products under watch', value: 45200, suffix: '+', sub: 'Updated nightly' },
               { label: 'True-special accuracy', value: 91, suffix: '%', sub: 'Validated against 180-day lows' },
               { label: 'Avg. basket savings', value: 18, suffix: '%', sub: 'Per week vs single-store shop' },
