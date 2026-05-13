@@ -42,7 +42,9 @@ export function StoreMap({ lat, lng, highlightRetailers, preloaded }: StoreMapPr
 
     const rLat = Math.round(lat * 1000) / 1000;
     const rLng = Math.round(lng * 1000) / 1000;
-    fetch(`/api/stores?lat=${rLat}&lng=${rLng}&radius=10000`)
+    // `v=` matches shop-context — cache-buster to skip any stale
+    // empty responses left over from the earlier Overpass 406 outage.
+    fetch(`/api/stores?lat=${rLat}&lng=${rLng}&radius=10000&v=2`)
       .then((r) => (r.ok ? r.json() : Promise.reject(r.status)))
       .then((data: { stores?: RealStore[] }) => {
         if (cancelled) return;

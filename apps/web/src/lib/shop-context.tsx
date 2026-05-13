@@ -144,7 +144,9 @@ export function ShopProvider({ children }: { children: React.ReactNode }) {
     setStoresError(false);
     const rLat = Math.round(lat * 1000) / 1000;
     const rLng = Math.round(lng * 1000) / 1000;
-    fetch(`/api/stores?lat=${rLat}&lng=${rLng}&radius=10000`)
+    // `v=` is a cache-buster. Bump it whenever a deployment fixes an
+    // upstream issue that left stale empty responses cached at the CDN.
+    fetch(`/api/stores?lat=${rLat}&lng=${rLng}&radius=10000&v=2`)
       .then((r) => (r.ok ? r.json() : Promise.reject(r.status)))
       .then((data: { stores?: RealStore[] }) => {
         if (cancelled) return;
