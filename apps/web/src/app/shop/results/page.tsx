@@ -269,7 +269,7 @@ export default function ResultsPage() {
           {bestPlan.totalTravelCost > 0 && (
             <span>
               <span className="text-cream/50">·</span>{' '}
-              <span className="text-cream/50">Travel</span>{' '}
+              <span className="text-cream/50">Travel*</span>{' '}
               <span className="font-bold text-cream">+{formatAUD(bestPlan.totalTravelCost)}</span>
             </span>
           )}
@@ -288,6 +288,11 @@ export default function ResultsPage() {
             <span className="text-cream/50">= {formatAUD(bestPlan.grandTotal)}</span>
           )}
         </div>
+        {bestPlan.totalTravelCost > 0 && (
+          <div className="mt-1 font-mono text-[10px] italic text-cream/40">
+            * travel cost estimated — assumes driving at ${preferences.fuelCostPerKm.toFixed(2)}/km
+          </div>
+        )}
         <div className="mt-4 text-sm leading-relaxed text-cream/80">
           Cheapest with{' '}
           <b style={{ color: 'var(--lime)' }}>
@@ -556,7 +561,7 @@ function PlanCard({
           <div className="mt-1 font-mono text-[10px] text-ink/60">
             {formatAUD(plan.subtotal)} basket
             {plan.totalFees > 0 && <> · +{formatAUD(plan.totalFees)} fees</>}
-            {plan.totalTravelCost > 0 && <> · +{formatAUD(plan.totalTravelCost)} travel</>}
+            {plan.totalTravelCost > 0 && <> · +{formatAUD(plan.totalTravelCost)} travel*</>}
             {plan.totalLoyaltyRebate > 0 && <> · −{formatAUD(plan.totalLoyaltyRebate)} loyalty</>}
           </div>
           {savings > 0.5 && (
@@ -721,7 +726,7 @@ function PlanCard({
         )}
         {plan.totalTravelCost > 0 && (
           <div className="flex justify-between text-ink/70">
-            <span>TRAVEL (FUEL)</span>
+            <span>TRAVEL (FUEL)*</span>
             <span>+{formatAUD(plan.totalTravelCost)}</span>
           </div>
         )}
