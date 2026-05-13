@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { MapPin, ArrowRight, ShoppingCart, TrendingDown, Truck } from 'lucide-react';
+import { MapPin, ArrowRight, TrendingDown, ShoppingCart, Truck } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useShop } from '@/lib/shop-context';
 import { lookupPostcode } from '@/lib/postcodes';
@@ -30,31 +30,34 @@ export default function ShopPage() {
 
   return (
     <motion.div
-      className="max-w-lg mx-auto pt-12"
+      className="mx-auto max-w-2xl px-6 pt-14"
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5, ease: [0.21, 0.47, 0.32, 0.98] }}
     >
-      <div className="text-center mb-8">
-        <div className="inline-flex items-center gap-2 px-3 py-1 bg-emerald-50 text-emerald-700 text-xs font-medium rounded-full mb-4">
-          <ShoppingCart className="h-3 w-3" />
-          Free to use — no signup required
+      <div className="mb-10 text-center">
+        <div className="mb-5 inline-flex items-center gap-2 ss-chip ss-chip--lime">
+          <ShoppingCart className="size-3" />
+          Free to use · no signup
         </div>
-        <h1 className="text-3xl font-bold text-gray-900 mb-3">
-          Find the cheapest way to shop
+        <h1 className="bignum text-[clamp(48px,8vw,80px)] leading-[0.95]">
+          FIND THE
+          <br />
+          <span className="mark-lime">CHEAPEST</span> SHOP
         </h1>
-        <p className="text-gray-500">
-          Enter your postcode so we can find nearby stores and compare delivery vs pickup costs.
+        <p className="mt-5 text-base text-ink/70">
+          Enter your postcode. We&apos;ll find real nearby stores and compare delivery vs pickup
+          costs.
         </p>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
-          <label htmlFor="postcode" className="block text-sm font-medium text-gray-700 mb-1">
-            <MapPin className="h-3.5 w-3.5 inline mr-1" />
+          <label htmlFor="postcode" className="mb-2 block font-mono text-xs uppercase tracking-[0.12em] text-ink/70">
+            <MapPin className="mr-1 inline size-3.5" />
             Your postcode
           </label>
-          <div className="flex gap-2">
+          <div className="flex items-center gap-2 rounded-full border-[1.5px] border-ink bg-paper p-2 pl-6 shadow-brut">
             <input
               id="postcode"
               type="text"
@@ -67,22 +70,19 @@ export default function ShopPage() {
                 setError('');
               }}
               placeholder="e.g. 2026"
-              className="flex-1 px-4 py-3 border border-gray-300 rounded-xl text-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none"
+              className="flex-1 bg-transparent text-lg font-medium outline-none placeholder:text-ink/30"
               autoFocus
             />
-            <button
-              type="submit"
-              className="px-6 py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-medium rounded-xl transition-colors flex items-center gap-2"
-            >
-              Go
-              <ArrowRight className="h-4 w-4" />
+            <button type="submit" className="btn-ink" style={{ padding: '10px 22px', fontSize: 13 }}>
+              Go <ArrowRight className="size-4" />
             </button>
           </div>
           <AnimatePresence mode="wait">
             {error && (
               <motion.p
                 key="error"
-                className="text-sm text-red-600 mt-1"
+                className="mt-2 text-sm font-medium"
+                style={{ color: 'var(--tomato)' }}
                 initial={{ opacity: 0, y: -5 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0 }}
@@ -93,12 +93,12 @@ export default function ShopPage() {
             {suburb && !error && (
               <motion.p
                 key="suburb"
-                className="text-sm text-emerald-600 mt-1"
+                className="mt-2 text-sm font-medium text-ink/70"
                 initial={{ opacity: 0, y: -5 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0 }}
               >
-                <MapPin className="h-3 w-3 inline mr-1" />
+                <MapPin className="mr-1 inline size-3" />
                 {suburb}
               </motion.p>
             )}
@@ -106,22 +106,25 @@ export default function ShopPage() {
         </div>
       </form>
 
-      <div className="mt-12 grid grid-cols-3 gap-4 text-center">
+      <div className="mt-14 grid grid-cols-3 gap-4 border-t-[1.5px] border-ink pt-8">
         {[
-          { icon: TrendingDown, label: 'Find real specials', sub: 'Not cosmetic discounts' },
-          { icon: ShoppingCart, label: 'Optimise your basket', sub: 'Across Coles, Woolies, ALDI, IGA' },
-          { icon: Truck, label: 'Delivery or pickup?', sub: 'Based on your actual cost' },
-        ].map(({ icon: Icon, label, sub }, i) => (
+          { icon: TrendingDown, n: '01', label: 'Real specials', sub: 'Not cosmetic discounts' },
+          { icon: ShoppingCart, n: '02', label: '20+ retailers', sub: 'Supermarkets, indies, servos' },
+          { icon: Truck, n: '03', label: 'Real distance', sub: 'OpenStreetMap data' },
+        ].map(({ icon: Icon, n, label, sub }, i) => (
           <motion.div
             key={label}
-            className="p-4"
+            className="text-center"
             initial={{ opacity: 0, y: 15 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.4, delay: 0.3 + i * 0.1 }}
           >
-            <Icon className="h-6 w-6 text-emerald-500 mx-auto mb-2" />
-            <div className="text-sm font-medium text-gray-900">{label}</div>
-            <div className="text-xs text-gray-400 mt-0.5">{sub}</div>
+            <div className="font-mono text-xs" style={{ color: 'var(--tomato)' }}>
+              / {n}
+            </div>
+            <Icon className="mx-auto mt-2 size-6 text-ink" />
+            <div className="mt-2 text-sm font-semibold">{label}</div>
+            <div className="mt-1 text-xs text-ink/60">{sub}</div>
           </motion.div>
         ))}
       </div>

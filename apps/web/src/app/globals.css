@@ -2,60 +2,70 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ─────────────────────────────────────────────────────────────────
+   SMARTSHOPPER · "Receipt-shop magazine" design tokens
+   From the Claude Design handoff bundle.
+   ───────────────────────────────────────────────────────────────── */
+
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 240 10% 3.9%;
-    --card: 0 0% 100%;
-    --card-foreground: 240 10% 3.9%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 240 10% 3.9%;
-    --primary: 142 71% 40%;
-    --primary-foreground: 0 0% 98%;
-    --secondary: 240 4.8% 95.9%;
-    --secondary-foreground: 240 5.9% 10%;
-    --muted: 240 4.8% 95.9%;
-    --muted-foreground: 240 3.8% 46.1%;
-    --accent: 142 71% 95%;
-    --accent-foreground: 142 61% 20%;
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 240 5.9% 90%;
-    --input: 240 5.9% 90%;
-    --ring: 142 71% 40%;
-    --radius: 0.75rem;
-    --savings: 142 71% 40%;
-    --savings-foreground: 0 0% 100%;
-    --cosmetic: 36 95% 47%;
-    --cosmetic-foreground: 36 40% 15%;
-    --font-sans: 'Inter', 'Helvetica Neue', 'Arial', sans-serif;
-    --font-display: 'Space Grotesk', 'Inter', sans-serif;
+    /* Brutalist palette (literal hex copied from styles.css) */
+    --cream: #f7f2e7;
+    --cream-2: #efe9d9;
+    --ink: #0f0f0e;
+    --ink-70: rgba(15, 15, 14, 0.7);
+    --ink-40: rgba(15, 15, 14, 0.4);
+    --ink-15: rgba(15, 15, 14, 0.15);
+    --ink-08: rgba(15, 15, 14, 0.08);
+    --lime: #dcff3d;
+    --lime-deep: #b9dc1f;
+    --tomato: #ff4d2e;
+    --tomato-deep: #e03a1c;
+    --cobalt: #2a3cff;
+    --cobalt-deep: #1a28c9;
+    --paper: #fffdf7;
+
+    /* Tailwind/shadcn-style HSL tokens — mapped to the new palette so all
+       existing components (Button, Card, Badge) inherit the new look. */
+    --background: 39 47% 94%; /* cream */
+    --foreground: 60 4% 6%; /* ink */
+    --card: 47 100% 98%; /* paper */
+    --card-foreground: 60 4% 6%;
+    --popover: 47 100% 98%;
+    --popover-foreground: 60 4% 6%;
+    --primary: 60 4% 6%; /* ink — primary button background */
+    --primary-foreground: 39 47% 94%; /* cream — primary button text */
+    --secondary: 70 100% 62%; /* lime */
+    --secondary-foreground: 60 4% 6%;
+    --muted: 41 41% 90%; /* cream-2 */
+    --muted-foreground: 60 4% 6% / 0.7;
+    --accent: 70 100% 62%; /* lime */
+    --accent-foreground: 60 4% 6%;
+    --destructive: 9 100% 59%; /* tomato */
+    --destructive-foreground: 39 47% 94%;
+    --border: 60 4% 6% / 0.15; /* ink-15 */
+    --input: 60 4% 6% / 0.15;
+    --ring: 60 4% 6%;
+    --radius: 0.875rem; /* 14px → matches design --r-md */
+    --savings: 70 100% 62%; /* lime */
+    --savings-foreground: 60 4% 6%;
+    --cosmetic: 9 100% 59%; /* tomato */
+    --cosmetic-foreground: 39 47% 94%;
+
+    --font-sans: 'Bricolage Grotesque', system-ui, sans-serif;
+    --font-display: 'Boldonse', 'Bricolage Grotesque', sans-serif;
+    --font-mono: 'JetBrains Mono', 'IBM Plex Mono', monospace;
   }
 
+  /* Dark mode kept loosely available; the brutalist design is light-only. */
   .dark {
-    --background: 240 10% 3.9%;
-    --foreground: 0 0% 98%;
-    --card: 240 10% 5.5%;
-    --card-foreground: 0 0% 98%;
-    --popover: 240 10% 5.5%;
-    --popover-foreground: 0 0% 98%;
-    --primary: 142 71% 55%;
-    --primary-foreground: 240 10% 3.9%;
-    --secondary: 240 3.7% 15.9%;
-    --secondary-foreground: 0 0% 98%;
-    --muted: 240 3.7% 15.9%;
-    --muted-foreground: 240 5% 64.9%;
-    --accent: 142 55% 20%;
-    --accent-foreground: 142 80% 85%;
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 240 3.7% 18%;
-    --input: 240 3.7% 18%;
-    --ring: 142 71% 55%;
-    --savings: 142 71% 50%;
-    --savings-foreground: 0 0% 100%;
-    --cosmetic: 36 80% 55%;
-    --cosmetic-foreground: 36 40% 15%;
+    --background: 60 4% 6%;
+    --foreground: 39 47% 94%;
+    --card: 60 4% 8%;
+    --card-foreground: 39 47% 94%;
+    --primary: 70 100% 62%;
+    --primary-foreground: 60 4% 6%;
+    --border: 39 47% 94% / 0.15;
   }
 }
 
@@ -66,9 +76,11 @@
   html {
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
+    scroll-behavior: smooth;
   }
   body {
-    @apply bg-background text-foreground;
+    background: var(--cream);
+    color: var(--ink);
     font-family: var(--font-sans);
     font-feature-settings: 'cv05', 'cv11', 'ss01';
   }
@@ -77,31 +89,360 @@
   h3,
   h4 {
     font-family: var(--font-display);
-    letter-spacing: -0.015em;
+    letter-spacing: -0.02em;
   }
   .tabular {
     font-variant-numeric: tabular-nums;
   }
+  ::selection {
+    background: var(--lime);
+    color: var(--ink);
+  }
+}
 
-  /* Smooth scrolling */
-  html {
-    scroll-behavior: smooth;
+/* ─────────────────────────────────────────────────────────────────
+   Brutalist component classes — ported directly from the design.
+   Use these wherever the Tailwind utility soup would be too verbose
+   (tickers, receipts, big numbers).
+   ───────────────────────────────────────────────────────────────── */
+
+@layer components {
+  /* Paper grain — extremely subtle dotted texture for cream surfaces */
+  .ss-grain {
+    position: relative;
+  }
+  .ss-grain::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image: radial-gradient(rgba(15, 15, 14, 0.04) 1px, transparent 1px);
+    background-size: 3px 3px;
+    opacity: 0.4;
+    pointer-events: none;
+    z-index: 0;
+  }
+  .ss-grain > * {
+    position: relative;
+    z-index: 1;
   }
 
-  /* Selection color */
-  ::selection {
-    background: hsl(142 71% 40% / 0.2);
+  /* Tape strip — yellow dashed accent like sticky note */
+  .tape {
+    position: absolute;
+    background: rgba(255, 220, 100, 0.55);
+    border: 1px dashed rgba(15, 15, 14, 0.15);
+    width: 90px;
+    height: 24px;
+    transform: rotate(-4deg);
+    z-index: 5;
+  }
+
+  /* Brutalist nav */
+  .ss-nav {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 18px 24px;
+    border-bottom: 1.5px solid var(--ink);
+    background: var(--cream);
+    position: relative;
+    z-index: 4;
+  }
+  .ss-nav__logo {
+    font-family: var(--font-display);
+    font-size: 22px;
+    letter-spacing: -0.02em;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    color: var(--ink);
+  }
+  .ss-nav__logo .dot {
+    width: 14px;
+    height: 14px;
+    background: var(--tomato);
+    border-radius: 50%;
+    display: inline-block;
+    box-shadow: 0 0 0 4px var(--lime);
+  }
+  .ss-nav__links {
+    display: flex;
+    gap: 24px;
+    font-size: 13px;
+    font-weight: 500;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+  .ss-nav__links a {
+    color: var(--ink);
+    text-decoration: none;
+    transition: opacity 0.15s ease;
+  }
+  .ss-nav__links a:hover {
+    opacity: 0.65;
+  }
+  .ss-nav__links a.active {
+    background: var(--ink);
+    color: var(--cream);
+    padding: 4px 10px;
+    border-radius: 100px;
+  }
+  .ss-nav__cta {
+    background: var(--ink);
+    color: var(--cream);
+    padding: 10px 16px;
+    border-radius: 100px;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    transition: transform 0.15s ease;
+  }
+  .ss-nav__cta:hover {
+    transform: translateY(-1px);
+  }
+  .ss-nav__cta .arrow {
+    display: inline-block;
+    width: 18px;
+    height: 18px;
+    background: var(--lime);
+    color: var(--ink);
+    border-radius: 50%;
+    text-align: center;
+    font-size: 11px;
+    line-height: 18px;
+    font-weight: 700;
+  }
+
+  /* Ticker bar — black scrolling marquee */
+  .ticker {
+    display: flex;
+    gap: 32px;
+    align-items: center;
+    padding: 10px 0;
+    background: var(--ink);
+    color: var(--cream);
+    font-family: var(--font-mono);
+    font-size: 13px;
+    letter-spacing: 0.02em;
+    white-space: nowrap;
+    overflow: hidden;
+  }
+  .ticker__track {
+    display: flex;
+    gap: 32px;
+    animation: ss-ticker 40s linear infinite;
+    flex-shrink: 0;
+    padding-left: 32px;
+  }
+  .ticker__item {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .ticker__item .up {
+    color: var(--tomato);
+  }
+  .ticker__item .down {
+    color: var(--lime);
+  }
+  @keyframes ss-ticker {
+    from {
+      transform: translateX(0);
+    }
+    to {
+      transform: translateX(-50%);
+    }
+  }
+
+  /* Pill buttons */
+  .btn-lime {
+    background: var(--lime);
+    color: var(--ink);
+    border: 1.5px solid var(--ink);
+    border-radius: 100px;
+    padding: 16px 28px;
+    font-family: var(--font-sans);
+    font-weight: 700;
+    font-size: 16px;
+    letter-spacing: 0.02em;
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    cursor: pointer;
+    box-shadow: 4px 4px 0 var(--ink);
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+  }
+  .btn-lime:hover {
+    transform: translate(-2px, -2px);
+    box-shadow: 6px 6px 0 var(--ink);
+  }
+  .btn-lime:active {
+    transform: translate(0, 0);
+    box-shadow: 2px 2px 0 var(--ink);
+  }
+  .btn-ink {
+    background: var(--ink);
+    color: var(--cream);
+    border: 1.5px solid var(--ink);
+    border-radius: 100px;
+    padding: 16px 28px;
+    font-family: var(--font-sans);
+    font-weight: 600;
+    font-size: 15px;
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    cursor: pointer;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+  }
+  .btn-ink:hover {
+    transform: translate(-2px, -2px);
+    box-shadow: 4px 4px 0 var(--ink);
+  }
+  .btn-outline {
+    background: transparent;
+    color: var(--ink);
+    border: 1.5px solid var(--ink);
+    border-radius: 100px;
+    padding: 14px 24px;
+    font-family: var(--font-sans);
+    font-weight: 500;
+    font-size: 14px;
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    cursor: pointer;
+    transition: background 0.15s ease;
+  }
+  .btn-outline:hover {
+    background: var(--ink);
+    color: var(--cream);
+  }
+
+  /* Chips / badges */
+  .ss-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 12px;
+    border-radius: 100px;
+    border: 1px solid var(--ink);
+    font-family: var(--font-sans);
+    font-size: 12px;
+    font-weight: 500;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    background: var(--cream);
+    color: var(--ink);
+  }
+  .ss-chip--lime {
+    background: var(--lime);
+  }
+  .ss-chip--tomato {
+    background: var(--tomato);
+    color: var(--cream);
+    border-color: var(--ink);
+  }
+  .ss-chip--ink {
+    background: var(--ink);
+    color: var(--cream);
+  }
+  .ss-chip--cobalt {
+    background: var(--cobalt);
+    color: var(--cream);
+    border-color: var(--ink);
+  }
+
+  /* Big display number */
+  .bignum {
+    font-family: var(--font-display);
+    font-weight: 400;
+    line-height: 0.9;
+    letter-spacing: -0.04em;
+  }
+
+  /* Dashed dotted divider */
+  .dot-rule {
+    border-top: 1.5px dashed var(--ink);
+  }
+
+  /* Marker underline highlights */
+  .mark-lime {
+    background: linear-gradient(transparent 55%, var(--lime) 55%);
+    padding: 0 2px;
+  }
+  .mark-tomato {
+    background: linear-gradient(transparent 55%, var(--tomato) 55%);
+    color: var(--ink);
+    padding: 0 2px;
+  }
+
+  /* Receipt component */
+  .receipt {
+    background: var(--paper);
+    border: 1.5px solid var(--ink);
+    border-radius: var(--radius);
+    box-shadow: 6px 6px 0 var(--ink);
+    font-family: var(--font-mono);
+    font-size: 13px;
+  }
+  .receipt__row {
+    display: flex;
+    justify-content: space-between;
+    padding: 10px 18px;
+    border-bottom: 1px dashed var(--ink-15);
+  }
+  .receipt__row:last-child {
+    border-bottom: none;
+  }
+
+  /* Store pill — bug + name */
+  .store {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-family: var(--font-sans);
+    font-weight: 600;
+    font-size: 13px;
+    letter-spacing: 0.02em;
+  }
+  .store__bug {
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-family: var(--font-display);
+    font-size: 11px;
+    color: var(--ink);
+    border: 1.5px solid var(--ink);
+    background: var(--cream-2);
+    flex-shrink: 0;
+  }
+  .store__bug--best {
+    background: var(--ink);
+    color: var(--lime);
+  }
+
+  /* Brutalist card — hard border, hard shadow */
+  .brut-card {
+    background: var(--paper);
+    border: 1.5px solid var(--ink);
+    border-radius: var(--radius);
+    box-shadow: 4px 4px 0 var(--ink);
+  }
+  .brut-card--lg {
+    box-shadow: 8px 8px 0 var(--ink);
   }
 }
 
 @layer utilities {
-  /* Glass morphism */
-  .glass {
-    @apply bg-white/70 backdrop-blur-xl border border-white/20 shadow-lg;
-  }
-
-  /* Smooth focus ring */
   .focus-ring {
-    @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/50 focus-visible:ring-offset-2;
+    @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/40 focus-visible:ring-offset-2;
   }
 }

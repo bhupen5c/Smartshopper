@@ -53,6 +53,17 @@ const config: Config = {
           DEFAULT: 'hsl(var(--cosmetic))',
           foreground: 'hsl(var(--cosmetic-foreground))',
         },
+        // Brutalist palette — literal hex from the design styles.css
+        cream: '#F7F2E7',
+        'cream-2': '#EFE9D9',
+        ink: '#0F0F0E',
+        lime: '#DCFF3D',
+        'lime-deep': '#B9DC1F',
+        tomato: '#FF4D2E',
+        'tomato-deep': '#E03A1C',
+        cobalt: '#2A3CFF',
+        'cobalt-deep': '#1A28C9',
+        paper: '#FFFDF7',
       },
       borderRadius: {
         lg: 'var(--radius)',
@@ -62,18 +73,14 @@ const config: Config = {
       fontFamily: {
         sans: ['var(--font-sans)', 'system-ui', 'sans-serif'],
         display: ['var(--font-display)', 'system-ui', 'sans-serif'],
-        mono: ['ui-monospace', 'SFMono-Regular', 'monospace'],
+        mono: ['var(--font-mono)', 'ui-monospace', 'SFMono-Regular', 'monospace'],
       },
       keyframes: {
         'fade-in': {
           '0%': { opacity: '0', transform: 'translateY(8px)' },
           '100%': { opacity: '1', transform: 'translateY(0)' },
         },
-        'gradient-shift': {
-          '0%, 100%': { backgroundPosition: '0% 50%' },
-          '50%': { backgroundPosition: '100% 50%' },
-        },
-        'float': {
+        float: {
           '0%, 100%': { transform: 'translateY(0)' },
           '50%': { transform: 'translateY(-12px)' },
         },
@@ -81,24 +88,18 @@ const config: Config = {
           '0%, 100%': { opacity: '1' },
           '50%': { opacity: '0.7' },
         },
-        'shimmer': {
-          '0%': { backgroundPosition: '-200% 0' },
-          '100%': { backgroundPosition: '200% 0' },
-        },
       },
       animation: {
         'fade-in': 'fade-in 500ms ease-out',
-        'gradient-shift': 'gradient-shift 8s ease infinite',
-        'float': 'float 6s ease-in-out infinite',
+        float: 'float 6s ease-in-out infinite',
         'float-slow': 'float 8s ease-in-out infinite',
-        'float-fast': 'float 4s ease-in-out infinite',
         'pulse-soft': 'pulse-soft 3s ease-in-out infinite',
-        'shimmer': 'shimmer 2s linear infinite',
       },
       boxShadow: {
-        'glow': '0 0 20px rgba(16, 185, 129, 0.3)',
-        'glow-lg': '0 0 40px rgba(16, 185, 129, 0.2)',
-        'lift': '0 10px 40px -10px rgba(0, 0, 0, 0.15)',
+        // Brutalist hard shadows in ink
+        brut: '4px 4px 0 #0F0F0E',
+        'brut-lg': '8px 8px 0 #0F0F0E',
+        'brut-xl': '10px 10px 0 #0F0F0E',
       },
     },
   },

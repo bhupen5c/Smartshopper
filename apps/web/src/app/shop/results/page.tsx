@@ -2,10 +2,10 @@
 
 import { useMemo } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, ShoppingCart, Truck, MapPin, Award, AlertTriangle, Star, Clock } from 'lucide-react';
+import { ArrowLeft, ShoppingCart, Truck, MapPin, Award, AlertTriangle, Star, Clock, Loader2 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useShop } from '@/lib/shop-context';
-import { buildOffers, CATALOGUE_PRODUCTS } from '@/lib/catalogue';
+import { buildOffers, CATALOGUE_PRODUCTS, getNearestStores } from '@/lib/catalogue';
 import { formatAUD } from '@/lib/utils';
 import { optimiseBasket } from '@smartshopper/core/basket';
 import { recommendFulfilment } from '@smartshopper/core/delivery';
@@ -13,36 +13,17 @@ import { DEFAULT_DELIVERY_POLICIES } from '@smartshopper/core/delivery';
 import type { OptimiserPlan } from '@smartshopper/core/basket';
 import type { Quote } from '@smartshopper/core/delivery';
 import { StoreMap } from '@/components/shop/store-map';
-
-const RETAILER_COLORS: Record<string, string> = {
-  coles: 'bg-red-50 text-red-600',
-  woolworths: 'bg-green-50 text-green-600',
-  aldi: 'bg-blue-50 text-blue-600',
-  iga: 'bg-orange-50 text-orange-600',
-};
-
-const RETAILER_NAMES: Record<string, string> = {
-  coles: 'Coles',
-  woolworths: 'Woolworths',
-  aldi: 'ALDI',
-  iga: 'IGA',
-};
-
-const RETAILER_HOURS: Record<string, string> = {
-  coles: 'Typically 6am–10pm',
-  woolworths: 'Typically 6am–10pm (Sun 8am–9pm)',
-  aldi: 'Typically 8:30am–7pm (Sun 11am–5pm)',
-  iga: 'Typically 7am–9pm',
-};
+import { RETAILER_COLORS, RETAILER_NAMES, RETAILER_FALLBACK_HOURS, formatOpeningHours } from '@/lib/retailers';
 
 export default function ResultsPage() {
-  const { items, origin, preferences, postcode, suburb, hydrated } = useShop();
+  const { items, origin, preferences, postcode, suburb, hydrated, nearbyStores, storesLoading } = useShop();
   const router = useRouter();
 
   const results = useMemo(() => {
     if (!origin || items.length === 0) return null;
 
-    const baseOffers = buildOffers(origin, postcode);
+    const baseOffers = buildOffers(origin, nearbyStores);
+    const assignedStores = getNearestStores();
 
     // Build the items + offers lists together so that generic items
     // ("Any haloumi") expand to offers for every matching branded product.
@@ -138,10 +119,24 @@ export default function ResultsPage() {
       }
     }
 
-    return { plans, fulfilmentByRetailer };
-  }, [items, origin, preferences, postcode]);
+    return { plans, fulfilmentByRetailer, assignedStores };
+  }, [items, origin, preferences, nearbyStores]);
 
   if (!hydrated) return null;
+
+  // Stores are being fetched from OSM — show a brief skeleton so the UI
+  // doesn't flicker between "no offers" and "real offers".
+  if (storesLoading && (!results || results.plans.length === 0)) {
+    return (
+      <div className="mx-auto max-w-2xl px-6 py-16 text-center">
+        <Loader2 className="mx-auto mb-3 size-8 animate-spin text-ink/60" />
+        <h2 className="bignum text-2xl">FINDING REAL STORES</h2>
+        <p className="mt-2 font-mono text-xs uppercase tracking-[0.14em] text-ink/60">
+          ◉ FROM OPENSTREETMAP · A COUPLE SECONDS
+        </p>
+      </div>
+    );
+  }
 
   if (!origin) {
     router.push('/shop');
@@ -150,21 +145,19 @@ export default function ResultsPage() {
 
   if (!results || results.plans.length === 0) {
     return (
-      <div className="max-w-2xl mx-auto text-center py-16">
-        <ShoppingCart className="h-12 w-12 text-gray-300 mx-auto mb-4" />
-        <h2 className="text-lg font-medium text-gray-500">No results</h2>
-        <p className="text-sm text-gray-400 mt-1">Add items to your list first</p>
-        <button
-          onClick={() => router.push('/shop/list')}
-          className="mt-4 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium rounded-lg transition-colors"
-        >
+      <div className="mx-auto max-w-2xl px-6 py-16 text-center">
+        <ShoppingCart className="mx-auto mb-4 size-12 text-ink/30" />
+        <h2 className="bignum text-3xl">NO RESULTS</h2>
+        <p className="mt-2 text-sm text-ink/60">Add items to your list first</p>
+        <button onClick={() => router.push('/shop/list')} className="btn-ink mt-5">
           Back to List
         </button>
       </div>
     );
   }
 
-  const { plans, fulfilmentByRetailer } = results;
+  const { plans, fulfilmentByRetailer, assignedStores } = results;
+  const storesByRetailer = new Map(assignedStores.map((s) => [s.retailerCode, s]));
   const unresolvedItems = items.filter((i) => !i.productId && !i.genericType);
   const bestPlan = plans[0]!;
   const bestSinglePlan = plans.find((p) => p.kind === 'single_retailer');
@@ -172,78 +165,171 @@ export default function ResultsPage() {
   const WORTH_SPLIT_THRESHOLD = 3.0; // dollars
 
   return (
-    <div className="max-w-3xl mx-auto space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="mx-auto max-w-4xl space-y-6 px-6 py-8">
+      <div className="flex items-end justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Your Best Deals</h1>
-          <p className="text-sm text-gray-500 mt-1">
-            <MapPin className="h-3 w-3 inline mr-1" />
-            {suburb} ({postcode}) · {items.filter((i) => i.productId || i.genericType).length} items compared
+          <div className="font-mono text-xs uppercase tracking-[0.16em] text-ink/70">
+            ◉ BEST DEALS · LIVE
+          </div>
+          <h1 className="bignum mt-2 text-[clamp(40px,7vw,68px)] leading-[0.95]">
+            YOUR <span className="mark-lime">BASKET</span>,
+            <br />
+            REALIGNED.
+          </h1>
+          <p className="mt-3 text-sm text-ink/70">
+            <MapPin className="mr-1 inline size-3" />
+            {suburb} ({postcode}) · {items.filter((i) => i.productId || i.genericType).length}{' '}
+            items compared across {assignedStores.length} retailer
+            {assignedStores.length === 1 ? '' : 's'}
           </p>
         </div>
-        <button
-          onClick={() => router.push('/shop/list')}
-          className="flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700"
-        >
-          <ArrowLeft className="h-4 w-4" />
+        <button onClick={() => router.push('/shop/list')} className="btn-outline text-xs">
+          <ArrowLeft className="size-3.5" />
           Edit List
         </button>
       </div>
 
       {unresolvedItems.length > 0 && (
-        <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg flex items-start gap-2">
-          <AlertTriangle className="h-4 w-4 text-amber-500 shrink-0 mt-0.5" />
-          <div className="text-sm text-amber-700">
+        <div className="flex items-start gap-2 rounded-xl border-[1.5px] border-ink bg-tomato/15 p-3">
+          <AlertTriangle className="mt-0.5 size-4 shrink-0" style={{ color: 'var(--tomato)' }} />
+          <div className="text-sm">
             <strong>{unresolvedItems.length} item(s)</strong> couldn&apos;t be matched:{' '}
             {unresolvedItems.map((i) => i.query).join(', ')}
           </div>
         </div>
       )}
 
-      {/* Savings breakdown — show the math for bigger lists */}
+      {assignedStores.length > 0 && (
+        <div className="flex items-center gap-1.5 font-mono text-xs uppercase tracking-[0.12em] text-ink/60">
+          <MapPin className="size-3" />
+          Store details · OpenStreetMap · {assignedStores.length} retailer
+          {assignedStores.length === 1 ? '' : 's'} matched
+        </div>
+      )}
+      {assignedStores.length === 0 && nearbyStores.length === 0 && (
+        <div className="rounded-xl border-[1.5px] border-ink bg-tomato/15 p-3 text-sm">
+          We couldn&apos;t reach OpenStreetMap, so we&apos;re using estimated distances from
+          your postcode centroid.
+        </div>
+      )}
+
+      {/* INK VERDICT CARD — the eye-catcher (from comparison artboard) */}
+      <motion.div
+        className="brut-card overflow-hidden p-6"
+        style={{ background: 'var(--ink)', color: 'var(--cream)' }}
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4 }}
+      >
+        <div className="font-mono text-[11px] tracking-[0.18em]" style={{ color: 'var(--lime)' }}>
+          SMARTSHOPPER VERDICT
+        </div>
+        <div className="mt-3 flex flex-wrap items-baseline gap-5">
+          <div className="bignum text-[clamp(56px,9vw,88px)]" style={{ color: 'var(--lime)' }}>
+            {formatAUD(bestPlan.grandTotal)}
+          </div>
+          <div className="text-base">
+            {plans.length > 1 && plans[plans.length - 1]!.grandTotal > bestPlan.grandTotal && (
+              <>
+                <div className="line-through text-cream/40">
+                  {formatAUD(plans[plans.length - 1]!.grandTotal)} otherwise
+                </div>
+                <div className="font-bold" style={{ color: 'var(--lime)' }}>
+                  Save{' '}
+                  {formatAUD(plans[plans.length - 1]!.grandTotal - bestPlan.grandTotal)} (
+                  {Math.round(
+                    ((plans[plans.length - 1]!.grandTotal - bestPlan.grandTotal) /
+                      plans[plans.length - 1]!.grandTotal) *
+                      100,
+                  )}
+                  %)
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+        <div className="mt-4 text-sm leading-relaxed text-cream/80">
+          Cheapest with{' '}
+          <b style={{ color: 'var(--lime)' }}>
+            {bestPlan.retailerCodes
+              .map((c) => RETAILER_NAMES[c] ?? c)
+              .join(bestPlan.retailerCodes.length > 1 ? ' + ' : '')}
+          </b>
+          {bestPlan.totalTravelCost > 0 && (
+            <>
+              {' '}— total trip cost {formatAUD(bestPlan.totalTravelCost)} factored in.
+            </>
+          )}
+          {bestPlan.kind === 'multi_retailer' && (
+            <>
+              {' '}
+              <span style={{ color: 'var(--tomato)' }}>
+                Splitting basket beats a single-store run.
+              </span>
+            </>
+          )}
+        </div>
+        <div className="mt-5 flex flex-wrap gap-2.5">
+          <button onClick={() => router.push('/shop/list')} className="btn-lime text-sm">
+            Get directions →
+          </button>
+          <button
+            onClick={() => router.push('/shop/list')}
+            className="rounded-full border-[1.5px] border-cream bg-transparent px-5 py-3 text-sm font-medium text-cream hover:bg-cream hover:text-ink transition-colors"
+          >
+            Edit list
+          </button>
+        </div>
+      </motion.div>
+
+      {/* Savings breakdown — receipt aesthetic */}
       {bestSinglePlan && multiPlan && bestPlan.lines.length >= 3 && (
         <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.4 }}
-          className="p-4 bg-gradient-to-br from-emerald-50 to-white border border-emerald-200 rounded-xl"
+          className="brut-card p-5"
         >
-          <div className="flex items-center gap-2 mb-3">
-            <Star className="h-4 w-4 text-emerald-600" />
-            <h3 className="text-sm font-semibold text-gray-900">Savings breakdown</h3>
+          <div className="mb-4 flex items-center gap-2 font-mono text-xs uppercase tracking-[0.14em]">
+            <Star className="size-3.5" style={{ color: 'var(--tomato)' }} />
+            SMARTSHOPPER VERDICT
           </div>
           <div className="grid grid-cols-2 gap-3 text-sm">
-            <div className="p-3 bg-white rounded-lg border border-gray-100">
-              <div className="text-xs text-gray-500 mb-1">Stay at one store</div>
-              <div className="text-xl font-bold text-gray-900">
+            <div className="rounded-xl border-[1.5px] border-ink bg-cream/60 p-4">
+              <div className="font-mono text-[10px] uppercase tracking-[0.14em] text-ink/70">
+                Stay at one store
+              </div>
+              <div className="bignum mt-2 text-3xl">
                 {formatAUD(bestSinglePlan.grandTotal)}
               </div>
-              <div className="text-xs text-gray-400 mt-0.5">
-                {RETAILER_NAMES[bestSinglePlan.retailerCodes[0]!] ?? bestSinglePlan.retailerCodes[0]}
+              <div className="mt-1 text-xs text-ink/60">
+                {RETAILER_NAMES[bestSinglePlan.retailerCodes[0]!] ??
+                  bestSinglePlan.retailerCodes[0]}
               </div>
             </div>
-            <div className={`p-3 rounded-lg border ${
-              (multiPlan.savingsVsBestSingle ?? 0) >= WORTH_SPLIT_THRESHOLD
-                ? 'bg-emerald-50 border-emerald-300'
-                : 'bg-gray-50 border-gray-200'
-            }`}>
-              <div className="text-xs text-gray-500 mb-1">Split across {multiPlan.retailerCodes.length} stores</div>
-              <div className="text-xl font-bold text-gray-900">
-                {formatAUD(multiPlan.grandTotal)}
+            <div
+              className={`rounded-xl border-[1.5px] border-ink p-4 ${
+                (multiPlan.savingsVsBestSingle ?? 0) >= WORTH_SPLIT_THRESHOLD
+                  ? 'bg-lime'
+                  : 'bg-cream/60'
+              }`}
+            >
+              <div className="font-mono text-[10px] uppercase tracking-[0.14em] text-ink/70">
+                Split across {multiPlan.retailerCodes.length} stores
               </div>
-              <div className="text-xs mt-0.5">
+              <div className="bignum mt-2 text-3xl">{formatAUD(multiPlan.grandTotal)}</div>
+              <div className="mt-1 text-xs">
                 {(multiPlan.savingsVsBestSingle ?? 0) >= WORTH_SPLIT_THRESHOLD ? (
-                  <span className="text-emerald-700 font-medium">
+                  <span className="font-semibold">
                     Saves {formatAUD(multiPlan.savingsVsBestSingle!)} — worth it
                   </span>
                 ) : (multiPlan.savingsVsBestSingle ?? 0) > 0 ? (
-                  <span className="text-gray-500">
-                    Only saves {formatAUD(multiPlan.savingsVsBestSingle!)} — probably not worth the extra trip
+                  <span className="text-ink/60">
+                    Only saves {formatAUD(multiPlan.savingsVsBestSingle!)} — probably not worth
+                    the extra trip
                   </span>
                 ) : (
-                  <span className="text-gray-400">
-                    Costs more once travel is added
-                  </span>
+                  <span className="text-ink/40">Costs more once travel is added</span>
                 )}
               </div>
             </div>
@@ -265,9 +351,50 @@ export default function ResultsPage() {
           rank={idx}
           fulfilment={fulfilmentByRetailer}
           worstTotal={plans[plans.length - 1]?.grandTotal ?? plan.grandTotal}
+          storesByRetailer={storesByRetailer}
         />
         </motion.div>
       ))}
+
+      {/* Three footer cards — pattern / forecast / bundle (from comparison artboard) */}
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+        <FootCard
+          label="BASKET PATTERN"
+          big={`${bestPlan.lines.length} items`}
+          note={`Optimised across ${bestPlan.retailerCodes.length} retailer${
+            bestPlan.retailerCodes.length === 1 ? '' : 's'
+          }. ${bestPlan.lines.filter((l) => l.isTrueSpecial).length} true specials caught.`}
+          color="lime"
+        />
+        <FootCard
+          label="TRAVEL COST · IF DRIVING"
+          big={
+            bestPlan.totalTravelCost > 0
+              ? `+${formatAUD(bestPlan.totalTravelCost)}`
+              : 'No travel'
+          }
+          note={
+            bestPlan.totalTravelCost > 0
+              ? `Fuel cost across ${bestPlan.retailerCodes.length} stop${
+                  bestPlan.retailerCodes.length === 1 ? '' : 's'
+                } at $${preferences.fuelCostPerKm}/km.`
+              : 'Walkable or delivery — no fuel cost factored in.'
+          }
+          color="tomato"
+          inv
+        />
+        <FootCard
+          label="BUNDLE SAVINGS"
+          big={
+            plans.length > 1 && plans[plans.length - 1]!.grandTotal > bestPlan.grandTotal
+              ? `+ ${formatAUD(plans[plans.length - 1]!.grandTotal - bestPlan.grandTotal)}`
+              : '$0'
+          }
+          note="vs. the worst single-store option. Members + true specials stacked where eligible."
+          color="cobalt"
+          inv
+        />
+      </div>
 
       {/* Real store map from OpenStreetMap */}
       {origin && (
@@ -280,9 +407,51 @@ export default function ResultsPage() {
             lat={origin.lat}
             lng={origin.lng}
             highlightRetailers={plans[0]?.retailerCodes}
+            preloaded={nearbyStores}
           />
         </motion.div>
       )}
+    </div>
+  );
+}
+
+function FootCard({
+  label,
+  big,
+  note,
+  color,
+  inv,
+}: {
+  label: string;
+  big: string;
+  note: string;
+  color: 'lime' | 'tomato' | 'cobalt';
+  inv?: boolean;
+}) {
+  const hex = color === 'lime' ? '#DCFF3D' : color === 'tomato' ? '#FF4D2E' : '#2A3CFF';
+  return (
+    <div
+      className="brut-card p-5"
+      style={{
+        background: inv ? hex : 'var(--paper)',
+        color: inv ? 'var(--cream)' : 'var(--ink)',
+      }}
+    >
+      <div
+        className="font-mono text-[10px] tracking-[0.16em]"
+        style={{ color: inv ? 'rgba(247,242,231,0.7)' : 'var(--ink-70)' }}
+      >
+        {label}
+      </div>
+      <div
+        className="bignum mt-2 text-[28px]"
+        style={{
+          color: inv ? 'var(--cream)' : color === 'lime' ? 'var(--ink)' : hex,
+        }}
+      >
+        {big}
+      </div>
+      <div className="mt-2 text-[12px] leading-relaxed opacity-85">{note}</div>
     </div>
   );
 }
@@ -292,102 +461,160 @@ function PlanCard({
   rank,
   fulfilment,
   worstTotal,
+  storesByRetailer,
 }: {
   plan: OptimiserPlan;
   rank: number;
   fulfilment: Map<string, Quote[]>;
   worstTotal: number;
+  storesByRetailer: Map<string, import('@/lib/catalogue').StoreInfo>;
 }) {
   const isBest = rank === 0;
   const savings = worstTotal - plan.grandTotal;
 
   return (
     <div
-      className={`bg-white rounded-xl border overflow-hidden ${
-        isBest ? 'border-emerald-300 ring-1 ring-emerald-200' : 'border-gray-200'
-      }`}
+      className={`brut-card overflow-hidden ${isBest ? 'brut-card--lg' : ''}`}
+      style={{
+        borderLeft: isBest ? '6px solid var(--tomato)' : undefined,
+      }}
     >
       {/* Header */}
-      <div className={`px-5 py-4 flex items-center justify-between ${isBest ? 'bg-emerald-50' : 'bg-gray-50'}`}>
-        <div className="flex items-center gap-3">
+      <div
+        className="flex items-center justify-between px-5 py-4"
+        style={{
+          background: isBest ? 'var(--lime)' : 'var(--cream-2)',
+          borderBottom: '1.5px solid var(--ink)',
+        }}
+      >
+        <div className="flex flex-wrap items-center gap-2">
           {isBest && (
-            <span className="flex items-center gap-1 px-2 py-0.5 bg-emerald-100 text-emerald-700 text-xs font-semibold rounded-full">
-              <Award className="h-3 w-3" />
-              Best Option
+            <span className="ss-chip ss-chip--ink">
+              <Award className="size-3" />
+              BEST OPTION
             </span>
           )}
-          <span className="text-xs text-gray-500 capitalize">{plan.kind.replace(/_/g, ' ')}</span>
-          <div className="flex gap-1">
+          <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-ink/70">
+            {plan.kind.replace(/_/g, ' ')}
+          </span>
+          <div className="flex gap-1.5">
             {plan.retailerCodes.map((code) => (
-              <span key={code} className={`px-2 py-0.5 rounded-full text-xs font-medium ${RETAILER_COLORS[code] ?? 'bg-gray-100 text-gray-600'}`}>
+              <span
+                key={code}
+                className={`ss-chip ${isBest ? '' : ''}`}
+                style={{ background: 'var(--paper)' }}
+              >
                 {RETAILER_NAMES[code] ?? code}
               </span>
             ))}
           </div>
         </div>
         <div className="text-right">
-          <div className="text-xl font-bold text-gray-900">{formatAUD(plan.grandTotal)}</div>
+          <div className="bignum text-3xl">{formatAUD(plan.grandTotal)}</div>
           {savings > 0.5 && (
-            <div className="text-xs text-emerald-600 font-medium">Save {formatAUD(savings)}</div>
+            <div className="mt-0.5 font-mono text-xs font-bold" style={{ color: 'var(--tomato)' }}>
+              SAVE {formatAUD(savings)}
+            </div>
           )}
         </div>
       </div>
 
-      {/* Retailer hours */}
-      <div className="px-5 py-3 border-b border-gray-100 space-y-1.5">
-        {plan.retailerCodes.map((code) => {
-          const hours = RETAILER_HOURS[code];
+      {/* Real store details per retailer (name, address, hours from OSM) */}
+      <div
+        className="space-y-2.5 px-5 py-3"
+        style={{ borderBottom: '1px dashed var(--ink-15)', background: 'var(--cream-2)' }}
+      >
+        {plan.retailerCodes.map((code, i) => {
+          const store = storesByRetailer.get(code);
+          const hours = formatOpeningHours(store?.hours) ?? RETAILER_FALLBACK_HOURS[code];
           return (
-            <div key={code} className="flex items-center gap-2 text-xs">
-              <span className={`px-1.5 py-0.5 rounded font-medium shrink-0 ${RETAILER_COLORS[code] ?? 'bg-gray-100 text-gray-600'}`}>
-                {RETAILER_NAMES[code] ?? code}
+            <div key={code} className="flex items-start gap-3 text-xs">
+              <span className="store__bug" style={{ width: 30, height: 30, fontSize: 11 }}>
+                {String(i + 1).padStart(2, '0')}
               </span>
-              {hours && (
-                <span className="flex items-center gap-1 text-gray-400">
-                  <Clock className="h-3 w-3 shrink-0" />
-                  {hours}
-                </span>
-              )}
+              <div className="min-w-0 flex-1 space-y-0.5">
+                <div className="flex items-center gap-2">
+                  <span className="ss-chip" style={{ background: 'var(--paper)', fontSize: 10, padding: '2px 8px' }}>
+                    {RETAILER_NAMES[code] ?? code}
+                  </span>
+                  {store && (
+                    <span className="font-medium">{store.storeName}</span>
+                  )}
+                  {store?.distanceLabel && (
+                    <span className="font-mono text-ink/50">{store.distanceLabel}</span>
+                  )}
+                </div>
+                {store?.address && (
+                  <div className="flex items-center gap-1 text-ink/60">
+                    <MapPin className="size-3 shrink-0" />
+                    <span className="truncate">{store.address}</span>
+                  </div>
+                )}
+                {hours && (
+                  <div className="flex items-center gap-1 text-ink/50">
+                    <Clock className="size-3 shrink-0" />
+                    <span className="truncate">{hours}</span>
+                  </div>
+                )}
+              </div>
             </div>
           );
         })}
       </div>
 
       {/* Line items */}
-      <div className="divide-y divide-gray-100">
-        {plan.lines.map((line) => {
+      <div className="bg-paper">
+        {plan.lines.map((line, i) => {
           const alt = plan.lineAlternatives?.find((a) => a.listItemId === line.listItemId);
           return (
-            <div key={line.listItemId} className="px-5 py-2.5 text-sm">
+            <div
+              key={line.listItemId}
+              className="px-5 py-3 text-sm"
+              style={{
+                borderBottom:
+                  i < plan.lines.length - 1 ? '1px dashed var(--ink-15)' : 'none',
+              }}
+            >
               <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2 min-w-0">
-                  <span className="text-gray-900 truncate">{line.productName}</span>
-                  {line.quantity > 1 && <span className="text-gray-400 text-xs">×{line.quantity}</span>}
+                <div className="flex min-w-0 items-center gap-2">
+                  <span className="truncate font-medium">{line.productName}</span>
+                  {line.quantity > 1 && (
+                    <span className="font-mono text-xs text-ink/40">×{line.quantity}</span>
+                  )}
                   {line.isTrueSpecial && (
-                    <span className="flex items-center gap-0.5 px-1.5 py-0.5 bg-emerald-50 text-emerald-600 text-xs rounded-full shrink-0">
-                      <Star className="h-2.5 w-2.5" />
+                    <span className="ss-chip ss-chip--tomato" style={{ padding: '2px 8px', fontSize: 10 }}>
+                      <Star className="size-2.5" />
                       Deal
                     </span>
                   )}
                   {line.memberOnly && (
-                    <span className="px-1.5 py-0.5 bg-purple-50 text-purple-600 text-xs rounded-full shrink-0">
+                    <span className="ss-chip ss-chip--cobalt" style={{ padding: '2px 8px', fontSize: 10 }}>
                       Members
                     </span>
                   )}
                 </div>
-                <div className="flex items-center gap-3 shrink-0 ml-2">
-                  <span className={`px-1.5 py-0.5 rounded text-xs ${RETAILER_COLORS[line.retailerCode] ?? 'bg-gray-100 text-gray-600'}`}>
+                <div className="ml-2 flex shrink-0 items-center gap-3">
+                  <span
+                    className="rounded-full border border-ink/15 px-2 py-0.5 font-mono text-[10px] uppercase tracking-wider"
+                    style={{ background: 'var(--cream-2)' }}
+                  >
                     {RETAILER_NAMES[line.retailerCode] ?? line.retailerCode}
                   </span>
-                  <span className="font-mono text-gray-700 w-16 text-right">{formatAUD(line.lineTotal)}</span>
+                  <span className="w-20 text-right font-mono font-semibold">
+                    {formatAUD(line.lineTotal)}
+                  </span>
                 </div>
               </div>
               {alt && (
-                <div className="mt-1 ml-0.5 text-[11px] text-amber-600 flex items-center gap-1">
+                <div
+                  className="ml-0.5 mt-1 flex items-center gap-1 text-[11px] font-medium"
+                  style={{ color: 'var(--tomato)' }}
+                >
                   <span>↓</span>
                   <span>
-                    {formatAUD(alt.savingsPerUnit)} cheaper at {RETAILER_NAMES[alt.cheaperRetailerCode] ?? alt.cheaperRetailerCode}
-                    {' '}({formatAUD(alt.cheaperPrice)})
+                    {formatAUD(alt.savingsPerUnit)} cheaper at{' '}
+                    {RETAILER_NAMES[alt.cheaperRetailerCode] ?? alt.cheaperRetailerCode} (
+                    {formatAUD(alt.cheaperPrice)})
                   </span>
                 </div>
               )}
@@ -396,27 +623,33 @@ function PlanCard({
         })}
       </div>
 
-      {/* Cost breakdown */}
-      <div className="px-5 py-3 bg-gray-50 border-t border-gray-200 space-y-1 text-sm">
-        <div className="flex justify-between text-gray-500">
-          <span>Subtotal</span>
+      {/* Cost breakdown — receipt style */}
+      <div
+        className="space-y-1 px-5 py-3 font-mono text-[13px]"
+        style={{
+          borderTop: '1.5px dashed var(--ink-15)',
+          background: 'var(--cream)',
+        }}
+      >
+        <div className="flex justify-between text-ink/70">
+          <span>SUBTOTAL</span>
           <span>{formatAUD(plan.subtotal)}</span>
         </div>
         {plan.totalFees > 0 && (
-          <div className="flex justify-between text-gray-500">
-            <span>Delivery / fees</span>
+          <div className="flex justify-between text-ink/70">
+            <span>DELIVERY / FEES</span>
             <span>+{formatAUD(plan.totalFees)}</span>
           </div>
         )}
         {plan.totalTravelCost > 0 && (
-          <div className="flex justify-between text-gray-500">
-            <span>Travel cost (fuel)</span>
+          <div className="flex justify-between text-ink/70">
+            <span>TRAVEL (FUEL)</span>
             <span>+{formatAUD(plan.totalTravelCost)}</span>
           </div>
         )}
         {plan.totalLoyaltyRebate > 0 && (
-          <div className="flex justify-between text-emerald-600">
-            <span>Loyalty rebate</span>
+          <div className="flex justify-between font-bold" style={{ color: 'var(--tomato)' }}>
+            <span>LOYALTY REBATE</span>
             <span>−{formatAUD(plan.totalLoyaltyRebate)}</span>
           </div>
         )}
@@ -424,10 +657,13 @@ function PlanCard({
 
       {/* Fulfilment options for best plan */}
       {rank === 0 && plan.retailerCodes.some((c) => fulfilment.has(c)) && (
-        <div className="px-5 py-4 border-t border-gray-200">
-          <h3 className="text-sm font-semibold text-gray-900 mb-3 flex items-center gap-2">
-            <Truck className="h-4 w-4" />
-            Delivery vs Pickup
+        <div
+          className="px-5 py-4"
+          style={{ borderTop: '1.5px solid var(--ink)', background: 'var(--paper)' }}
+        >
+          <h3 className="mb-3 flex items-center gap-2 font-mono text-xs uppercase tracking-[0.14em] text-ink/70">
+            <Truck className="size-3.5" />
+            DELIVERY vs PICKUP
           </h3>
           <div className="space-y-3">
             {plan.retailerCodes.map((code) => {
@@ -435,40 +671,52 @@ function PlanCard({
               if (!quotes?.length) return null;
               return (
                 <div key={code}>
-                  <div className="text-xs font-medium text-gray-500 mb-1">{RETAILER_NAMES[code] ?? code}</div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                    {quotes.filter((q) => q.eligible).slice(0, 3).map((q, i) => (
-                      <div
-                        key={q.mode}
-                        className={`p-3 rounded-lg border text-sm ${
-                          i === 0 ? 'border-emerald-200 bg-emerald-50' : 'border-gray-200'
-                        }`}
-                      >
-                        <div className="flex justify-between items-center mb-1">
-                          <span className="font-medium text-gray-900 capitalize text-xs">
-                            {q.mode.replace(/_/g, ' ')}
-                          </span>
-                          <span className="font-mono font-semibold text-gray-900 text-xs">
-                            {formatAUD(q.totalCost)}
-                          </span>
-                        </div>
-                        <div className="text-xs text-gray-400">
-                          {q.fee > 0 && <span>Fee: {formatAUD(q.fee)} · </span>}
-                          {q.distanceKm > 0 && <span>{q.distanceKm.toFixed(1)}km · </span>}
-                          {q.roundTripMinutes > 0 && (
-                            <span>
-                              {Math.round(q.roundTripMinutes)}min {q.travelCost === 0 && q.distanceKm > 0 ? 'walk' : q.distanceKm > 0 ? 'drive' : ''}
+                  <div className="mb-1.5 text-xs font-semibold text-ink/70">
+                    {RETAILER_NAMES[code] ?? code}
+                  </div>
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    {quotes
+                      .filter((q) => q.eligible)
+                      .slice(0, 3)
+                      .map((q, i) => (
+                        <div
+                          key={q.mode}
+                          className="rounded-xl border-[1.5px] p-3 text-sm"
+                          style={{
+                            borderColor: 'var(--ink)',
+                            background: i === 0 ? 'var(--lime)' : 'var(--paper)',
+                          }}
+                        >
+                          <div className="mb-1 flex items-center justify-between">
+                            <span className="text-xs font-bold uppercase tracking-wider">
+                              {q.mode.replace(/_/g, ' ')}
                             </span>
-                          )}
-                          {q.travelCost === 0 && q.distanceKm > 0 && q.distanceKm <= 2 && (
-                            <span> · No fuel cost</span>
+                            <span className="font-mono text-xs font-semibold">
+                              {formatAUD(q.totalCost)}
+                            </span>
+                          </div>
+                          <div className="text-xs text-ink/60">
+                            {q.fee > 0 && <span>Fee: {formatAUD(q.fee)} · </span>}
+                            {q.distanceKm > 0 && <span>{q.distanceKm.toFixed(1)}km · </span>}
+                            {q.roundTripMinutes > 0 && (
+                              <span>
+                                {Math.round(q.roundTripMinutes)}min{' '}
+                                {q.travelCost === 0 && q.distanceKm > 0
+                                  ? 'walk'
+                                  : q.distanceKm > 0
+                                    ? 'drive'
+                                    : ''}
+                              </span>
+                            )}
+                            {q.travelCost === 0 && q.distanceKm > 0 && q.distanceKm <= 2 && (
+                              <span> · No fuel cost</span>
+                            )}
+                          </div>
+                          {q.explanation && (
+                            <div className="mt-1 text-xs text-ink/70">{q.explanation}</div>
                           )}
                         </div>
-                        {q.explanation && (
-                          <div className="text-xs text-gray-500 mt-1">{q.explanation}</div>
-                        )}
-                      </div>
-                    ))}
+                      ))}
                   </div>
                 </div>
               );
@@ -478,7 +726,10 @@ function PlanCard({
       )}
 
       {plan.explanation && (
-        <div className="px-5 py-3 border-t border-gray-100 text-xs text-gray-500">
+        <div
+          className="px-5 py-3 text-xs text-ink/60"
+          style={{ borderTop: '1px dashed var(--ink-15)' }}
+        >
           {plan.explanation}
         </div>
       )}
