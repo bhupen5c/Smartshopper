@@ -21,12 +21,26 @@ export interface RealStore {
   distanceKm?: number;
 }
 
-const OVERPASS_URL = 'https://overpass-api.de/api/interpreter';
+/**
+ * Public Overpass mirrors. We try them in order so a single mirror being
+ * rate-limited / returning 406 ("Not Acceptable" / output-quota) doesn't
+ * fail the whole request. Per Overpass etiquette: send a descriptive
+ * User-Agent so operators can identify and contact us if needed.
+ */
+const OVERPASS_MIRRORS = [
+  'https://overpass-api.de/api/interpreter',
+  'https://overpass.kumi.systems/api/interpreter',
+  'https://overpass.private.coffee/api/interpreter',
+];
+
+const USER_AGENT =
+  'SmartShopper/0.1 (+https://smartshopper.vercel.app; au-grocery-price-comparison)';
 
 /**
  * Query Overpass for supermarkets + convenience stores near a point.
- * `shop=supermarket` and `shop=convenience` cover both. We tag-match the
- * brand/name against a list of known AU chains.
+ * `shop=supermarket` / `convenience` / `greengrocer` / `wholesale` cover
+ * both supermarkets and the niche chains; brand-name matching identifies
+ * the AU retailers we care about.
  */
 export async function fetchNearbyStores(
   lat: number,
@@ -44,20 +58,53 @@ export async function fetchNearbyStores(
     out center tags;
   `;
 
-  const res = await fetch(OVERPASS_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: `data=${encodeURIComponent(query)}`,
-  });
+  const body = `data=${encodeURIComponent(query)}`;
 
-  if (!res.ok) {
-    console.warn('Overpass API error:', res.status);
-    return [];
+  let lastErr: string | null = null;
+  for (const mirror of OVERPASS_MIRRORS) {
+    try {
+      const res = await fetch(mirror, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+          Accept: 'application/json',
+          'User-Agent': USER_AGENT,
+        },
+        body,
+      });
+
+      if (!res.ok) {
+        lastErr = `${mirror} → ${res.status}`;
+        console.warn(`Overpass mirror failed: ${lastErr}`);
+        continue;
+      }
+
+      const data = await res.json();
+      return parseElements(data, { lat, lng });
+    } catch (err) {
+      lastErr = `${mirror} → ${(err as Error)?.message ?? 'fetch error'}`;
+      console.warn(`Overpass mirror threw: ${lastErr}`);
+      continue;
+    }
   }
 
-  const data = await res.json();
-  const stores: RealStore[] = [];
+  console.warn(`All Overpass mirrors failed: ${lastErr}`);
+  return [];
+}
 
+interface OverpassElement {
+  id: number;
+  lat?: number;
+  lon?: number;
+  center?: { lat: number; lon: number };
+  tags?: Record<string, string>;
+}
+
+function parseElements(
+  data: { elements?: OverpassElement[] },
+  origin: { lat: number; lng: number },
+): RealStore[] {
+  const stores: RealStore[] = [];
   for (const el of data.elements ?? []) {
     const tags = el.tags ?? {};
     const shopTag = (tags.shop ?? '').toLowerCase();
@@ -84,11 +131,9 @@ export async function fetchNearbyStores(
       openingHours: tags.opening_hours,
       phone: tags.phone ?? tags['contact:phone'],
       website: tags.website ?? tags['contact:website'],
-      distanceKm: haversineKm({ lat, lng }, { lat: storeLat, lng: storeLng }),
+      distanceKm: haversineKm(origin, { lat: storeLat, lng: storeLng }),
     });
   }
-
-  // Sort by distance so nearest stores are first
   stores.sort((a, b) => (a.distanceKm ?? Infinity) - (b.distanceKm ?? Infinity));
   return stores;
 }

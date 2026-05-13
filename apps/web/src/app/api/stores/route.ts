@@ -2,17 +2,21 @@
  * GET /api/stores?lat=...&lng=...&radius=10000
  *
  * Proxies the Overpass API to find real supermarkets + convenience stores
- * near a coordinate. Cached on the edge for 24h so repeated requests for
- * the same metro area don't hammer the public Overpass instance.
+ * near a coordinate. Successful responses are cached on the CDN for 24 h;
+ * upstream failures are returned with a short cache TTL so a transient
+ * Overpass error (rate limit, 406 quota) doesn't poison the cache for a
+ * full day.
  */
 
 import { NextResponse } from 'next/server';
 import { fetchNearbyStores } from '@/lib/overpass';
 
 export const runtime = 'nodejs';
-// Revalidate the route response every 24h; coordinates round to ~100m so
-// neighbouring postcodes share cache entries.
-export const revalidate = 86400;
+// Allow the route up to 25 s — Overpass timeout is 15 s and we try several
+// mirrors. Default Vercel hobby/pro limit is 10/60 s; staying conservative.
+export const maxDuration = 25;
+// Don't apply Next.js route-level caching; we set Cache-Control per response.
+export const dynamic = 'force-dynamic';
 
 export async function GET(request: Request) {
   const url = new URL(request.url);
@@ -34,6 +38,20 @@ export async function GET(request: Request) {
 
   try {
     const stores = await fetchNearbyStores(roundedLat, roundedLng, radius);
+
+    if (stores.length === 0) {
+      // Upstream returned nothing — could be a real "no shops nearby" answer,
+      // or every mirror failed. Cache briefly so retries can fix it quickly.
+      return NextResponse.json(
+        { stores: [], note: 'No stores returned' },
+        {
+          headers: {
+            'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=300',
+          },
+        },
+      );
+    }
+
     return NextResponse.json(
       { stores },
       {
@@ -44,6 +62,15 @@ export async function GET(request: Request) {
     );
   } catch (err) {
     console.error('stores api error:', err);
-    return NextResponse.json({ stores: [], error: 'Upstream Overpass error' }, { status: 200 });
+    return NextResponse.json(
+      { stores: [], error: 'Upstream Overpass error' },
+      {
+        status: 200,
+        headers: {
+          // Don't cache errors — a 24 h-cached error would block recovery.
+          'Cache-Control': 'no-store',
+        },
+      },
+    );
   }
 }
