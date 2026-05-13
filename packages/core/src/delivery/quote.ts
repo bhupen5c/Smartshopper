@@ -101,8 +101,21 @@ export function quoteFulfilment(input: QuoteInput, mode: FulfilmentMode): Quote 
   const inStoreMinutes =
     mode === 'in_store_pickup' ? defaultInStoreMinutes : mode === 'click_and_collect' ? 8 : mode === 'direct_to_boot' ? 3 : 0;
 
-  // No fuel cost when walking
-  const travelCost = mode === 'delivery' || isWalkable ? 0 : distanceKm * 2 * input.fuelCostPerKm;
+  // Travel cost:
+  // - Delivery: 0 (it comes to you).
+  // - Walking (≤ 2 km): small "effort cost" per km — carrying groceries home
+  //   has a real cost (time + hassle) even if there's no fuel. We bill it
+  //   at 35 % of the driving rate so a closer walkable store still beats
+  //   a marginally cheaper one farther away. Previously this was zero,
+  //   which made distance invisible to the optimiser within walking range.
+  // - Driving: full fuel/wear rate × round-trip km.
+  const WALKING_RATE_FACTOR = 0.35;
+  const travelCost =
+    mode === 'delivery'
+      ? 0
+      : isWalkable
+        ? distanceKm * 2 * input.fuelCostPerKm * WALKING_RATE_FACTOR
+        : distanceKm * 2 * input.fuelCostPerKm;
   // Time cost excluded — users don't think of their time as a dollar cost
   // and it inflated totals confusingly. Time info is still shown for reference.
   const timeCost = 0;
@@ -200,9 +213,11 @@ function buildExplanation(opts: {
     }
   } else if (opts.isWalkable) {
     parts.push(
-      `${opts.mode.replace(/_/g, ' ')} — only ${opts.distanceKm.toFixed(
+      `${opts.mode.replace(/_/g, ' ')} — ${opts.distanceKm.toFixed(
         1,
-      )} km away, walkable in ~${opts.walkingMinutes} min. No fuel cost.`,
+      )} km away, walkable in ~${opts.walkingMinutes} min (${
+        opts.travelCost > 0 ? `$${opts.travelCost.toFixed(2)} carry-home effort` : 'no carry cost'
+      }).`,
     );
   } else {
     parts.push(
