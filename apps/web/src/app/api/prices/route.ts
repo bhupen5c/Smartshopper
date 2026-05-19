@@ -33,10 +33,20 @@ export async function GET() {
   const supabase = readClient();
   if (!supabase) {
     // Supabase not configured — return empty array; client falls back to
-    // the in-repo PRICE_MATRIX. No-store so reconfiguring takes effect
-    // without users clearing caches.
+    // the in-repo PRICE_MATRIX. `seen` reports which env vars are visible
+    // (booleans only, no secret values) so misconfig is easy to diagnose.
     return NextResponse.json(
-      { prices: [], note: 'Supabase not configured' },
+      {
+        prices: [],
+        note: 'Supabase not configured',
+        seen: {
+          SUPABASE_URL: Boolean(process.env.SUPABASE_URL),
+          NEXT_PUBLIC_SUPABASE_URL: Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL),
+          SUPABASE_ANON_KEY: Boolean(process.env.SUPABASE_ANON_KEY),
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: Boolean(process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY),
+          SUPABASE_SERVICE_ROLE_KEY: Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY),
+        },
+      },
       { headers: { 'Cache-Control': 'no-store' } },
     );
   }
