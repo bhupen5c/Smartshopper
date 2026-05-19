@@ -1,42 +1,54 @@
 /**
  * Supabase clients for SmartShopper.
  *
- * - `serverClient()` — service-role (admin), only used in API routes / cron
- *   workers. Bypasses RLS. NEVER imported from client components.
- * - `readClient()` — anon (publishable) key. Read-only access protected by
- *   RLS. Safe to use from any server-side context (RSC, API route). For
- *   browser-side reads, prefer fetching through our own /api/* routes so
- *   the keys stay out of the bundle.
+ * ALL Supabase access in this app is server-side (the /api/prices route,
+ * the /admin/prices RSC, the scraper). So we use plain runtime env vars —
+ * NOT `NEXT_PUBLIC_*`. The NEXT_PUBLIC prefix triggers Next.js build-time
+ * inlining: if the var isn't present when `next build` runs it gets baked
+ * in as `undefined` and a later redeploy can't fix it. Plain `SUPABASE_*`
+ * vars are read fresh at request time.
  *
- * Env vars required:
- *   - NEXT_PUBLIC_SUPABASE_URL
- *   - NEXT_PUBLIC_SUPABASE_ANON_KEY (publishable)
- *   - SUPABASE_SERVICE_ROLE_KEY (server-only, for writes)
+ * Env vars (set in Vercel → Settings → Environment Variables, Production):
+ *   - SUPABASE_URL                 — project URL
+ *   - SUPABASE_ANON_KEY            — publishable key (RLS-protected reads)
+ *   - SUPABASE_SERVICE_ROLE_KEY    — admin key (writes; cron only)
+ *
+ * For backwards-compat we also accept the NEXT_PUBLIC_ variants.
  */
 
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from './database.types';
 
-const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+function url(): string | undefined {
+  return process.env.SUPABASE_URL ?? process.env.NEXT_PUBLIC_SUPABASE_URL;
+}
+function anonKey(): string | undefined {
+  return process.env.SUPABASE_ANON_KEY ?? process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+}
+function serviceKey(): string | undefined {
+  return process.env.SUPABASE_SERVICE_ROLE_KEY;
+}
 
 let _readClient: SupabaseClient<Database> | null = null;
 let _serverClient: SupabaseClient<Database> | null = null;
 
-/** Returns true when the Supabase client can be constructed. */
+/** True when at least the read client can be constructed. */
 export function isSupabaseConfigured(): boolean {
-  return Boolean(url && anonKey);
+  return Boolean(url() && (anonKey() || serviceKey()));
 }
 
 /**
- * Read-only client using the anon key. RLS still applies. Safe to call
- * from any environment but the env vars must be set.
+ * Read client. Prefers the anon key (RLS applies); falls back to the
+ * service-role key so a misconfigured anon key doesn't take the whole
+ * read path down — the data behind it (prices/products/retailers) is
+ * public anyway. Returns null only when no key at all is available.
  */
 export function readClient(): SupabaseClient<Database> | null {
-  if (!url || !anonKey) return null;
+  const u = url();
+  const key = anonKey() ?? serviceKey();
+  if (!u || !key) return null;
   if (!_readClient) {
-    _readClient = createClient<Database>(url, anonKey, {
+    _readClient = createClient<Database>(u, key, {
       auth: { persistSession: false, autoRefreshToken: false },
     });
   }
@@ -44,13 +56,15 @@ export function readClient(): SupabaseClient<Database> | null {
 }
 
 /**
- * Service-role client. Bypasses RLS. Only call from server-side code
- * (API routes, cron workers) — never from a client component.
+ * Service-role client. Bypasses RLS. Server-side only — never import from
+ * a client component.
  */
 export function serverClient(): SupabaseClient<Database> | null {
-  if (!url || !serviceKey) return null;
+  const u = url();
+  const key = serviceKey();
+  if (!u || !key) return null;
   if (!_serverClient) {
-    _serverClient = createClient<Database>(url, serviceKey, {
+    _serverClient = createClient<Database>(u, key, {
       auth: { persistSession: false, autoRefreshToken: false },
     });
   }
