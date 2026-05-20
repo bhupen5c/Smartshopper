@@ -134,6 +134,46 @@ describe('basket optimiser', () => {
     expect(multi!.retailerCodes.sort()).toEqual(['coles', 'woolworths']);
   });
 
+  it('ranks a full-coverage plan above a cheaper partial one', () => {
+    // Regression: a basket of milk + bread + eggs. IGA stocks milk + bread
+    // but not eggs — its 2-of-3 plan is cheaper than any full plan, but it
+    // must NOT rank #0, or the user is told "best: IGA" and gets no eggs.
+    const items = [
+      { listItemId: 'l1', productId: 'milk', productName: 'Milk', quantity: 1 },
+      { listItemId: 'l2', productId: 'bread', productName: 'Bread', quantity: 1 },
+      { listItemId: 'l3', productId: 'eggs', productName: 'Eggs', quantity: 1 },
+    ];
+    const mk = (retailerCode: string, productId: string, price: number) => ({
+      retailerCode,
+      retailerProductId: `${retailerCode}-${productId}`,
+      productId,
+      productName: `${retailerCode} ${productId}`,
+      price,
+      storeId: `${retailerCode}-s`,
+      storeLocation: retailerCode === 'iga' ? STORE_WOOLIES : STORE_COLES,
+      distanceKm: 1,
+      isTrueSpecial: false,
+      memberOnly: false,
+      inStock: true,
+    });
+    const offers = [
+      // IGA — cheap, but NO eggs (covers 2/3).
+      mk('iga', 'milk', 2),
+      mk('iga', 'bread', 2),
+      // Coles — full coverage, pricier.
+      mk('coles', 'milk', 4),
+      mk('coles', 'bread', 4),
+      mk('coles', 'eggs', 5),
+    ];
+    const plans = optimiseBasket({ items, offers, preferences: { ...PREFS, maxStores: 1 } });
+    expect(plans.length).toBeGreaterThan(0);
+    // The #0 plan must cover the whole basket.
+    expect(plans[0]!.coverage).toBe(1);
+    // The incomplete IGA plan may still appear, but never first.
+    const iga = plans.find((p) => p.retailerCodes.join() === 'iga');
+    if (iga) expect(iga.coverage).toBeLessThan(1);
+  });
+
   it('drops retailers when budget is exceeded', () => {
     const items = ['a', 'b', 'c'].map((k) => ({
       listItemId: `l-${k}`,

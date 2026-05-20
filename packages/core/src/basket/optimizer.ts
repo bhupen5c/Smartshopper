@@ -65,8 +65,26 @@ export function optimiseBasket({ items, offers, preferences }: OptimiseInput): O
     if (deliveryOnly) plans.push(deliveryOnly);
   }
 
-  // Rank cheapest-first; break ties by total travel+time cost, then distance.
+  // Drop partial plans once any plan covers the whole basket — an
+  // incomplete basket (a retailer that doesn't stock eggs) isn't a real
+  // answer to "how do I buy all of this". Keep partials only as a
+  // best-effort fallback when nothing achieves full coverage.
+  const rankable = plans.some((p) => p.coverage >= 1)
+    ? plans.filter((p) => p.coverage >= 1)
+    : plans;
+  plans.length = 0;
+  plans.push(...rankable);
+
+  // Rank: full-coverage plans always beat partial ones — a cheaper plan
+  // that can't fulfil the whole basket (e.g. a retailer that doesn't stock
+  // eggs) must never be presented as "best". Within equal coverage, sort
+  // cheapest-first, then by store distance.
   plans.sort((a, b) => {
+    // coverage is fulfilled/total in [0,1]; round to avoid float noise.
+    const covA = Math.round(a.coverage * 1000);
+    const covB = Math.round(b.coverage * 1000);
+    if (covA !== covB) return covB - covA; // higher coverage first
+
     const diff = a.grandTotal - b.grandTotal;
     if (Math.abs(diff) > 0.01) return diff;
     // Same price → prefer shorter distance (stored in _distanceKm metadata)
@@ -76,8 +94,10 @@ export function optimiseBasket({ items, offers, preferences }: OptimiseInput): O
   });
 
   // Annotate each plan with savings-vs-best-single-retailer + per-line
-  // "cheaper elsewhere" hints so the UI can show the math.
-  const bestSingle = plans.find((p) => p.kind === 'single_retailer');
+  // "cheaper elsewhere" hints so the UI can show the math. Compare only
+  // against the best *fully covering* single-retailer plan so the savings
+  // math isn't skewed by an incomplete basket.
+  const bestSingle = plans.find((p) => p.kind === 'single_retailer' && p.coverage >= 1);
   for (const plan of plans) {
     plan.savingsVsBestSingle =
       bestSingle && plan !== bestSingle ? bestSingle.grandTotal - plan.grandTotal : null;
