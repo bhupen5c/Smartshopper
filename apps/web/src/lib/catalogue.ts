@@ -534,11 +534,19 @@ export interface PriceQuote {
  * PRICE_MATRIX) and convenience stores (from CONVENIENCE_PRICES).
  * Sorted cheapest-first. Used by the UI to render the "all prices"
  * strip under each line item.
+ *
+ * Pass `genericType` for an "Any X" line: prices for every product of
+ * that type are folded in — convenience stores stock one representative
+ * SKU, not the specific brand the optimiser happened to pick — then
+ * collapsed to the cheapest price per retailer so the strip stays tidy.
  */
-export function getAllPricesFor(productId: string): PriceQuote[] {
+export function getAllPricesFor(productId: string, genericType?: string): PriceQuote[] {
+  const productIds = genericType
+    ? new Set(CATALOGUE_PRODUCTS.filter((p) => p.genericType === genericType).map((p) => p.id))
+    : new Set([productId]);
   const quotes: PriceQuote[] = [];
   for (const pe of PRICE_MATRIX) {
-    if (pe.productId !== productId) continue;
+    if (!productIds.has(pe.productId)) continue;
     quotes.push({
       productId: pe.productId,
       retailerCode: pe.retailerCode,
@@ -549,7 +557,7 @@ export function getAllPricesFor(productId: string): PriceQuote[] {
     });
   }
   for (const cp of CONVENIENCE_PRICES) {
-    if (cp.productId !== productId) continue;
+    if (!productIds.has(cp.productId)) continue;
     quotes.push({
       productId: cp.productId,
       retailerCode: cp.retailerCode,
@@ -558,6 +566,16 @@ export function getAllPricesFor(productId: string): PriceQuote[] {
       memberOnly: false,
       isConvenience: true,
     });
+  }
+  // For a generic line many products share the type — show the cheapest
+  // price at each retailer so the strip stays one entry per store.
+  if (genericType) {
+    const cheapestPerRetailer = new Map<string, PriceQuote>();
+    for (const q of quotes) {
+      const seen = cheapestPerRetailer.get(q.retailerCode);
+      if (!seen || q.price < seen.price) cheapestPerRetailer.set(q.retailerCode, q);
+    }
+    return [...cheapestPerRetailer.values()].sort((a, b) => a.price - b.price);
   }
   return quotes.sort((a, b) => a.price - b.price);
 }

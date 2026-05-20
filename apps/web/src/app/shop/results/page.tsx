@@ -659,7 +659,17 @@ function PlanCard({
       <div className="bg-paper">
         {plan.lines.map((line, i) => {
           const alt = plan.lineAlternatives?.find((a) => a.listItemId === line.listItemId);
-          const allPrices = getAllPricesFor(line.productId);
+          // A generic "Any X" line carries a synthetic productId; recover the
+          // real catalogue product (from retailerProductId, "<retailer>-<id>")
+          // so its genericType expands the strip to every retailer + conv store.
+          const isGeneric = line.productId.startsWith('generic:');
+          const realProductId = isGeneric
+            ? line.retailerProductId.replace(/^[^-]+-/, '')
+            : line.productId;
+          const genericType = isGeneric
+            ? CATALOGUE_PRODUCTS.find((p) => p.id === realProductId)?.genericType
+            : undefined;
+          const allPrices = getAllPricesFor(realProductId, genericType);
           const hasConvenience = allPrices.some((p) => p.isConvenience);
           return (
             <div
