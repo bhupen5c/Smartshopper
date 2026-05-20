@@ -21,14 +21,23 @@ export function haversineKm(a: LatLng, b: LatLng): number {
   return 2 * EARTH_RADIUS_KM * Math.asin(Math.min(1, Math.sqrt(h)));
 }
 
+/** Multiplier from straight-line (great-circle) distance to driven road distance, urban AU. */
+export const ROAD_DISTANCE_FACTOR = 1.35;
+/** Assumed average urban driving speed, km/h. */
+export const URBAN_DRIVING_SPEED_KMH = 35;
+
 /**
  * Estimate driving minutes for a given point-to-point road distance.
  * We don't have a routing engine in core, so we apply a sensible urban-AU fudge:
  * road distance ≈ haversine × 1.35, average speed 35 km/h.
  */
 export function estimateDrivingMinutes(haversineKmDistance: number): number {
-  const roadKm = haversineKmDistance * 1.35;
-  return (roadKm / 35) * 60;
+  return drivingMinutesForRoadKm(haversineKmDistance * ROAD_DISTANCE_FACTOR);
+}
+
+/** Driving minutes for a distance already expressed in road kilometres. */
+export function drivingMinutesForRoadKm(roadKm: number): number {
+  return (roadKm / URBAN_DRIVING_SPEED_KMH) * 60;
 }
 
 /** Convert a list of candidate stores to those within maxKm of origin, sorted by distance. */

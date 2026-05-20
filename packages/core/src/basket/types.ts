@@ -71,6 +71,25 @@ export interface OptimiserLineAlternative {
   savingsPerUnit: number;
 }
 
+export interface OptimiserRouteLeg {
+  /** Retailer visited at this stop. */
+  retailerCode: string;
+  storeId: string | null;
+  storeLocation: LatLng;
+  /** Road distance driven to reach this stop from the previous point
+   *  (the user's home for the first stop), km. */
+  fromPreviousKm: number;
+}
+
+export interface OptimiserRoute {
+  /** Stores to visit, in driving order. Empty for a delivery-only plan. */
+  legs: OptimiserRouteLeg[];
+  /** Total loop distance — home → every stop → home, road km. */
+  totalKm: number;
+  /** Travel time for the whole loop, minutes (excludes time spent in store). */
+  travelMinutes: number;
+}
+
 export interface OptimiserPlan {
   kind: 'single_retailer' | 'multi_retailer' | 'delivery_only';
   /** Lines, one per shopping-list item. */
@@ -89,6 +108,24 @@ export interface OptimiserPlan {
   /** Items we could not source from any allowed retailer. */
   missingItemIds: string[];
   explanation: string;
+  /**
+   * The shopping route: which stores to drive between, in order, ending
+   * back home. `legs` is empty when nothing needs visiting (delivery).
+   */
+  route: OptimiserRoute;
+  /**
+   * Whole-trip time in minutes — driving the route loop plus time spent
+   * inside each store. 0 for a delivery plan.
+   */
+  tripMinutes: number;
+  /**
+   * The value-for-money score the optimiser ranks plans by. It folds the
+   * user's time into the comparison: grandTotal + tripMinutes priced at
+   * the user's timeValuePerHour. `grandTotal` itself stays money-only for
+   * display — effectiveCost is what decides which plan wins, so a plan a
+   * few dollars cheaper but an hour slower correctly loses.
+   */
+  effectiveCost: number;
   /**
    * How much this plan saves vs. the best single-retailer plan.
    * Positive = this plan is cheaper. Null on the single-retailer plan itself.

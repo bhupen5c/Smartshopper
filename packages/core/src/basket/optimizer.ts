@@ -1,7 +1,9 @@
 import { DEFAULT_DELIVERY_POLICIES } from '../delivery/policies.js';
-import { bestFulfilment } from '../delivery/recommend.js';
+import { recommendFulfilment } from '../delivery/recommend.js';
 import type { Quote } from '../delivery/quote.js';
-import { haversineKm } from '../geo.js';
+import { haversineKm, ROAD_DISTANCE_FACTOR } from '../geo.js';
+import { loyaltyRebateFor } from '../loyalty/savings.js';
+import { planRoute } from './route.js';
 import type {
   OptimiserItem,
   OptimiserOffer,
@@ -9,6 +11,8 @@ import type {
   OptimiserPreferences,
   OptimiserLine,
   OptimiserLineAlternative,
+  OptimiserRoute,
+  OptimiserRouteLeg,
 } from './types.js';
 
 interface OptimiseInput {
@@ -17,20 +21,24 @@ interface OptimiseInput {
   preferences: OptimiserPreferences;
 }
 
-/** Internal extension to carry distance for tie-breaking. */
-interface PlanWithMeta extends OptimiserPlan {
-  _distanceKm?: number;
-}
+/** Minutes spent inside a store at a route stop — matches the in-store
+ *  pickup default used by the delivery quoter. */
+const IN_STORE_MINUTES = 25;
 
 /**
  * Produce a ranked set of purchase plans:
- *   - one `single_retailer` plan per retailer with full coverage,
- *   - a `multi_retailer` plan if allowed and it beats every single-retailer plan,
+ *   - one `single_retailer` plan per retailer,
+ *   - a `multi_retailer` plan if the user can drive a route between stores,
  *   - a `delivery_only` plan if the user has no car (noCarAvailable).
  *
- * Ranking key: grand total (money out of pocket + travel cost + time cost − loyalty rebate).
- * The greedy multi-retailer heuristic is sufficient for typical grocery lists (< 100 items)
- * and runs in O(items × retailers). A swap local-search step polishes the result.
+ * Ranking key: `effectiveCost` — money out of pocket plus the dollar value
+ * of the time the trip costs. That is what makes the optimiser save time
+ * *and* money: a plan a few dollars cheaper but an hour slower loses to a
+ * faster one. Full-coverage plans always rank above partial ones.
+ *
+ * The greedy multi-retailer heuristic is sufficient for typical grocery
+ * lists (< 100 items) and runs in O(items × retailers); the multi-store
+ * leg distances come from an exact travelling-salesman loop (see route.ts).
  */
 export function optimiseBasket({ items, offers, preferences }: OptimiseInput): OptimiserPlan[] {
   if (items.length === 0) return [];
@@ -53,8 +61,9 @@ export function optimiseBasket({ items, offers, preferences }: OptimiseInput): O
     if (plan) plans.push(plan);
   }
 
-  // (2) Multi-retailer plan via greedy item-to-retailer assignment with a store budget.
-  if (preferences.maxStores > 1 && retailerCodes.length > 1) {
+  // (2) Multi-retailer plan: one driving route between stores. Pointless
+  //     for a user with no car — they get the delivery-only plan instead.
+  if (preferences.maxStores > 1 && retailerCodes.length > 1 && !preferences.noCarAvailable) {
     const multi = buildMultiRetailerPlan(items, offersForAllowedRetailer, preferences);
     if (multi) plans.push(multi);
   }
@@ -77,20 +86,20 @@ export function optimiseBasket({ items, offers, preferences }: OptimiseInput): O
 
   // Rank: full-coverage plans always beat partial ones — a cheaper plan
   // that can't fulfil the whole basket (e.g. a retailer that doesn't stock
-  // eggs) must never be presented as "best". Within equal coverage, sort
-  // cheapest-first, then by store distance.
+  // eggs) must never be presented as "best". Within equal coverage, sort by
+  // effectiveCost (money + the dollar value of the trip's time), then by
+  // money alone, then by the shorter drive.
   plans.sort((a, b) => {
     // coverage is fulfilled/total in [0,1]; round to avoid float noise.
     const covA = Math.round(a.coverage * 1000);
     const covB = Math.round(b.coverage * 1000);
     if (covA !== covB) return covB - covA; // higher coverage first
 
-    const diff = a.grandTotal - b.grandTotal;
-    if (Math.abs(diff) > 0.01) return diff;
-    // Same price → prefer shorter distance (stored in _distanceKm metadata)
-    const distA = (a as PlanWithMeta)._distanceKm ?? 999;
-    const distB = (b as PlanWithMeta)._distanceKm ?? 999;
-    return distA - distB;
+    const eff = a.effectiveCost - b.effectiveCost;
+    if (Math.abs(eff) > 0.01) return eff;
+    const money = a.grandTotal - b.grandTotal;
+    if (Math.abs(money) > 0.01) return money;
+    return a.route.totalKm - b.route.totalKm;
   });
 
   // Annotate each plan with savings-vs-best-single-retailer + per-line
@@ -156,7 +165,29 @@ function buildSingleRetailerPlan(
   const bestStoreOffer = pickClosestStore(byRetailer, prefs);
   const quote = quoteForRetailer(retailerCode, subtotal, bestStoreOffer, prefs);
 
-  const plan: PlanWithMeta = {
+  // Route: a single stop when the chosen fulfilment is a physical visit;
+  // empty when it's delivered (there's nothing to drive to).
+  const isVisit =
+    quote.mode !== 'delivery' && quote.distanceKm > 0 && bestStoreOffer?.storeLocation != null;
+  const route: OptimiserRoute = isVisit
+    ? {
+        legs: [
+          {
+            retailerCode,
+            storeId: quote.storeId,
+            storeLocation: bestStoreOffer!.storeLocation!,
+            fromPreviousKm: roundKm(quote.distanceKm * ROAD_DISTANCE_FACTOR),
+          },
+        ],
+        totalKm: roundKm(quote.distanceKm * ROAD_DISTANCE_FACTOR * 2),
+        travelMinutes: quote.roundTripMinutes,
+      }
+    : emptyRoute();
+
+  const tripMinutes = quote.roundTripMinutes + quote.inStoreMinutes;
+  const grandTotal = subtotal + quote.fee + quote.travelCost - quote.loyaltyRebate;
+
+  return {
     kind: 'single_retailer',
     lines,
     retailerCodes: [retailerCode],
@@ -165,13 +196,14 @@ function buildSingleRetailerPlan(
     totalTravelCost: quote.travelCost,
     totalTimeCost: quote.timeCost,
     totalLoyaltyRebate: quote.loyaltyRebate,
-    grandTotal: subtotal + quote.fee + quote.travelCost - quote.loyaltyRebate,
+    grandTotal,
     coverage: lines.length / items.length,
     missingItemIds: missing,
     explanation: buildSingleRetailerExplanation(retailerCode, lines.length, items.length, quote),
+    route,
+    tripMinutes,
+    effectiveCost: grandTotal + timeCostOf(tripMinutes, prefs.timeValuePerHour),
   };
-  plan._distanceKm = quote.distanceKm;
-  return plan;
 }
 
 function buildMultiRetailerPlan(
@@ -237,21 +269,61 @@ function buildMultiRetailerPlan(
     });
 
   const subtotalByRetailer = groupSum(lines, (l) => l.retailerCode, (l) => l.lineTotal);
-  const quotes: Quote[] = [];
+
+  // Closest store for each retailer that has one within reach.
+  const storeByRetailer = new Map<string, OptimiserOffer>();
   for (const retailerCode of retailersUsed) {
-    const subtotal = subtotalByRetailer.get(retailerCode) ?? 0;
-    const storeOffer = pickClosestStore(
+    const closest = pickClosestStore(
       offers.filter((o) => o.retailerCode === retailerCode),
       prefs,
     );
-    quotes.push(quoteForRetailer(retailerCode, subtotal, storeOffer, prefs));
+    if (closest?.storeLocation) storeByRetailer.set(retailerCode, closest);
+  }
+
+  // The drive: one optimal travelling-salesman loop through every store on
+  // the plan, billed once — NOT as an independent round trip per retailer,
+  // which is what the old quoting did and badly over-counted.
+  const drivable = [...retailersUsed].filter((r) => storeByRetailer.has(r));
+  const planned = planRoute(
+    prefs.origin,
+    drivable.map((r) => storeByRetailer.get(r)!.storeLocation!),
+  );
+  const routeLegs: OptimiserRouteLeg[] = planned.order.map((stop) => {
+    const retailerCode = drivable[stop.index]!;
+    const store = storeByRetailer.get(retailerCode)!;
+    return {
+      retailerCode,
+      storeId: store.storeId,
+      storeLocation: store.storeLocation!,
+      fromPreviousKm: stop.fromPreviousKm,
+    };
+  });
+
+  // Fees + loyalty: a route stop is an in-store pickup (no fee); a retailer
+  // with no reachable store falls back to a delivery quote.
+  let totalFees = 0;
+  let totalLoyaltyRebate = 0;
+  let deliveredTravelCost = 0;
+  for (const retailerCode of retailersUsed) {
+    const retailerSubtotal = subtotalByRetailer.get(retailerCode) ?? 0;
+    if (storeByRetailer.has(retailerCode)) {
+      totalLoyaltyRebate += loyaltyRebateFor(
+        retailerCode,
+        retailerSubtotal,
+        prefs.loyaltyMemberships,
+      ).rebate;
+    } else {
+      const quote = quoteForRetailer(retailerCode, retailerSubtotal, null, prefs);
+      totalFees += quote.fee;
+      totalLoyaltyRebate += quote.loyaltyRebate;
+      deliveredTravelCost += quote.travelCost;
+    }
   }
 
   const subtotal = sumLineTotals(lines);
-  const totalFees = quotes.reduce((s, q) => s + q.fee, 0);
-  const totalTravelCost = quotes.reduce((s, q) => s + q.travelCost, 0);
-  const totalTimeCost = quotes.reduce((s, q) => s + q.timeCost, 0);
-  const totalLoyaltyRebate = quotes.reduce((s, q) => s + q.loyaltyRebate, 0);
+  const totalTravelCost = planned.totalKm * prefs.fuelCostPerKm + deliveredTravelCost;
+  const tripMinutes = planned.drivingMinutes + drivable.length * IN_STORE_MINUTES;
+  const grandTotal = subtotal + totalFees + totalTravelCost - totalLoyaltyRebate;
 
   return {
     kind: 'multi_retailer',
@@ -260,12 +332,22 @@ function buildMultiRetailerPlan(
     subtotal,
     totalFees,
     totalTravelCost,
-    totalTimeCost,
+    totalTimeCost: 0,
     totalLoyaltyRebate,
-    grandTotal: subtotal + totalFees + totalTravelCost - totalLoyaltyRebate,
+    grandTotal,
     coverage: lines.length / items.length,
-    missingItemIds: items.filter((i) => !initialChoices.has(i.listItemId)).map((i) => i.listItemId),
-    explanation: `Splits your basket across ${retailersUsed.size} retailers — cheapest items picked at each, respecting your ${prefs.maxStores}-store limit.`,
+    missingItemIds: items
+      .filter((i) => !initialChoices.has(i.listItemId))
+      .map((i) => i.listItemId),
+    explanation:
+      drivable.length > 0
+        ? `Splits your basket across ${retailersUsed.size} retailers — one ${planned.totalKm.toFixed(
+            1,
+          )} km loop visiting each, cheapest items picked at every stop, within your ${prefs.maxStores}-store limit.`
+        : `Splits your basket across ${retailersUsed.size} retailers, all delivered to your door.`,
+    route: { legs: routeLegs, totalKm: planned.totalKm, travelMinutes: planned.drivingMinutes },
+    tripMinutes,
+    effectiveCost: grandTotal + timeCostOf(tripMinutes, prefs.timeValuePerHour),
   };
 }
 
@@ -276,9 +358,13 @@ function buildDeliveryOnlyPlan(
 ): OptimiserPlan | null {
   const base = buildSingleRetailerPlan('woolworths', items, offers, prefs);
   if (!base) return null;
+  // Delivery-only: nothing is driven, so there's no route and no trip time.
   return {
     ...base,
     kind: 'delivery_only',
+    route: emptyRoute(),
+    tripMinutes: 0,
+    effectiveCost: base.grandTotal,
     explanation: `Delivery-only plan — no car trips. ${base.explanation}`,
   };
 }
@@ -286,6 +372,19 @@ function buildDeliveryOnlyPlan(
 // ──────────────────────────────────────────────────────────────────────────────
 // Helpers
 // ──────────────────────────────────────────────────────────────────────────────
+
+function emptyRoute(): OptimiserRoute {
+  return { legs: [], totalKm: 0, travelMinutes: 0 };
+}
+
+/** Dollar value of a span of minutes at the user's hourly time valuation. */
+function timeCostOf(minutes: number, timeValuePerHour: number): number {
+  return (minutes / 60) * timeValuePerHour;
+}
+
+function roundKm(km: number): number {
+  return Math.round(km * 100) / 100;
+}
 
 function chooseCheapestLinesForItems(
   items: readonly OptimiserItem[],
@@ -326,10 +425,17 @@ function pickClosestStore(offers: readonly OptimiserOffer[], prefs: OptimiserPre
   const withStore = offers.filter((o) => o.storeLocation);
   if (withStore.length === 0) return null;
   return withStore.reduce((a, b) =>
-    haversineKm(prefs.origin, a.storeLocation!) <= haversineKm(prefs.origin, b.storeLocation!) ? a : b,
+    haversineKm(prefs.origin, a.storeLocation!) <= haversineKm(prefs.origin, b.storeLocation!)
+      ? a
+      : b,
   );
 }
 
+/**
+ * Quote a retailer's fulfilment, picking the mode with the lowest
+ * *effective* cost — money plus the dollar value of the time the trip
+ * would consume. With `noCarAvailable` set, only delivery is considered.
+ */
 function quoteForRetailer(
   retailerCode: string,
   subtotal: number,
@@ -337,7 +443,7 @@ function quoteForRetailer(
   prefs: OptimiserPreferences,
 ): Quote {
   const policy = DEFAULT_DELIVERY_POLICIES[retailerCode] ?? DEFAULT_DELIVERY_POLICIES.woolworths!;
-  const quote = bestFulfilment({
+  const quotes = recommendFulfilment({
     retailerCode,
     storeId: storeOffer?.storeId ?? undefined,
     storeLocation: storeOffer?.storeLocation ?? undefined,
@@ -349,7 +455,19 @@ function quoteForRetailer(
     activeSubscriptions: prefs.activeSubscriptions,
     loyaltyMemberships: prefs.loyaltyMemberships,
   });
-  if (quote) return quote;
+  let eligible = quotes.filter((q) => q.eligible);
+  // No car → delivery is the only real option.
+  if (prefs.noCarAvailable) eligible = eligible.filter((q) => q.mode === 'delivery');
+  if (eligible.length > 0) {
+    // Trade time against money: pick the mode whose money cost plus the
+    // value of its trip time is lowest, not the cheapest money alone.
+    return eligible.reduce((best, q) =>
+      effectiveQuoteCost(q, prefs.timeValuePerHour) <
+      effectiveQuoteCost(best, prefs.timeValuePerHour)
+        ? q
+        : best,
+    );
+  }
   // No eligible fulfilment; return a degenerate zero-fee "pickup" so totals stay defined.
   return {
     retailerCode,
@@ -369,6 +487,13 @@ function quoteForRetailer(
     eligible: false,
     ineligibleReason: 'No store within travel limit and delivery not available.',
   };
+}
+
+/** Money cost of a quote plus the dollar value of the time its trip costs. */
+function effectiveQuoteCost(quote: Quote, timeValuePerHour: number): number {
+  return (
+    quote.totalCost + timeCostOf(quote.roundTripMinutes + quote.inStoreMinutes, timeValuePerHour)
+  );
 }
 
 function pickDroppableRetailer(
@@ -408,7 +533,8 @@ function buildSingleRetailerExplanation(
   itemsCount: number,
   quote: Quote,
 ): string {
-  const coverage = linesCount === itemsCount ? 'covers your full list' : `covers ${linesCount}/${itemsCount} items`;
+  const coverage =
+    linesCount === itemsCount ? 'covers your full list' : `covers ${linesCount}/${itemsCount} items`;
   const { mode, fee } = quote;
   const feeBit = fee === 0 ? 'free' : `$${fee.toFixed(2)} fee`;
   return `${retailerCode}: ${coverage}, via ${mode.replace(/_/g, ' ')} (${feeBit}).`;

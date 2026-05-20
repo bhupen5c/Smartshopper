@@ -219,4 +219,83 @@ describe('basket optimiser', () => {
     // Must fit within 2 stores.
     if (multi) expect(multi.retailerCodes.length).toBeLessThanOrEqual(2);
   });
+
+  const mkOfferAt = (
+    retailerCode: string,
+    productId: string,
+    price: number,
+    storeLocation: { lat: number; lng: number },
+  ) => ({
+    retailerCode,
+    retailerProductId: `${retailerCode}-${productId}`,
+    productId,
+    productName: `${retailerCode} ${productId}`,
+    price,
+    storeId: `${retailerCode}-s`,
+    storeLocation,
+    distanceKm: 0.4,
+    isTrueSpecial: false,
+    memberOnly: false,
+    inStock: true,
+  });
+
+  it('bills multi-retailer travel as one loop, not a round trip per store', () => {
+    const items = [
+      { listItemId: 'l1', productId: 'milk', productName: 'Milk', quantity: 1 },
+      { listItemId: 'l2', productId: 'bread', productName: 'Bread', quantity: 1 },
+    ];
+    const offers = [
+      mkOfferAt('coles', 'milk', 2, STORE_COLES),
+      mkOfferAt('coles', 'bread', 9, STORE_COLES),
+      mkOfferAt('woolworths', 'milk', 9, STORE_WOOLIES),
+      mkOfferAt('woolworths', 'bread', 2, STORE_WOOLIES),
+    ];
+    const plans = optimiseBasket({ items, offers, preferences: PREFS });
+    const multi = plans.find((p) => p.kind === 'multi_retailer');
+    expect(multi).toBeDefined();
+    // One route leg per store, and the travel cost is the loop billed once
+    // — not the sum of an independent round trip to each store.
+    expect(multi!.route.legs).toHaveLength(2);
+    expect(multi!.route.totalKm).toBeGreaterThan(0);
+    expect(multi!.totalTravelCost).toBeCloseTo(multi!.route.totalKm * PREFS.fuelCostPerKm, 2);
+    expect(multi!.tripMinutes).toBeGreaterThan(0);
+  });
+
+  it('folds trip time into effectiveCost', () => {
+    const plans = optimiseBasket({
+      items: [{ listItemId: 'l1', productId: 'milk', productName: 'Milk', quantity: 1 }],
+      offers: [mkOfferAt('coles', 'milk', 3, STORE_COLES)],
+      preferences: PREFS,
+    });
+    const plan = plans[0]!;
+    expect(plan.tripMinutes).toBeGreaterThan(0);
+    expect(plan.effectiveCost).toBeCloseTo(
+      plan.grandTotal + (plan.tripMinutes / 60) * PREFS.timeValuePerHour,
+      4,
+    );
+  });
+
+  it('keeps a single store when a small split saving is not worth the extra stop', () => {
+    // Splitting trims only $2 of groceries but adds a whole extra in-store
+    // visit — at the user's time value the single-store plan is better value.
+    const items = [
+      { listItemId: 'l1', productId: 'milk', productName: 'Milk', quantity: 1 },
+      { listItemId: 'l2', productId: 'bread', productName: 'Bread', quantity: 1 },
+    ];
+    const offers = [
+      mkOfferAt('coles', 'milk', 5, STORE_COLES),
+      mkOfferAt('coles', 'bread', 3, STORE_COLES),
+      mkOfferAt('woolworths', 'milk', 3, STORE_WOOLIES),
+      mkOfferAt('woolworths', 'bread', 5, STORE_WOOLIES),
+    ];
+    const plans = optimiseBasket({ items, offers, preferences: PREFS });
+    const single = plans.find((p) => p.kind === 'single_retailer');
+    const multi = plans.find((p) => p.kind === 'multi_retailer');
+    expect(single).toBeDefined();
+    expect(multi).toBeDefined();
+    // The split really is cheaper on money out of pocket...
+    expect(multi!.grandTotal).toBeLessThan(single!.grandTotal);
+    // ...but the faster single-store plan wins on value for money.
+    expect(plans[0]!.kind).toBe('single_retailer');
+  });
 });
