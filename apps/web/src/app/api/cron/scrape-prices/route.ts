@@ -20,7 +20,7 @@
  */
 
 import { NextResponse } from 'next/server';
-import { listRetailers, runAll } from '@smartshopper/scraper';
+import { listActiveRetailers, runAll } from '@smartshopper/scraper';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -45,7 +45,7 @@ export async function GET(request: Request) {
 
   // Fan-out path: enqueue one QStash message per retailer.
   if (qstashToken && baseUrl) {
-    const retailers = listRetailers();
+    const retailers = await listActiveRetailers({});
     const results = await Promise.allSettled(
       retailers.map((retailerCode) =>
         fetch(`https://qstash.upstash.io/v2/publish/${baseUrl}/api/cron/scrape-retailer`, {

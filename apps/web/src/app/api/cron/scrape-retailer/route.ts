@@ -10,7 +10,7 @@
  */
 
 import { NextResponse } from 'next/server';
-import { runRetailer, getStrategy } from '@smartshopper/scraper';
+import { runRetailer } from '@smartshopper/scraper';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -38,14 +38,9 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'retailerCode required' }, { status: 400 });
   }
 
-  if (!getStrategy(body.retailerCode)) {
-    return NextResponse.json(
-      { error: `No strategy for ${body.retailerCode}` },
-      { status: 400 },
-    );
-  }
-
   try {
+    // runRetailer throws if the retailer isn't found or has no runnable
+    // strategy — caught below and returned as a 500 with the reason.
     const result = await runRetailer(body.retailerCode, {});
     return NextResponse.json({
       retailerCode: result.retailerCode,

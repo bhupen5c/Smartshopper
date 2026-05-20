@@ -3,28 +3,30 @@
  *
  *   pnpm --filter @smartshopper/scraper scrape           # all retailers
  *   pnpm --filter @smartshopper/scraper scrape coles     # one retailer
- *   pnpm --filter @smartshopper/scraper scrape --dry     # don't write to Supabase
+ *   pnpm --filter @smartshopper/scraper scrape list      # list active retailers
+ *   pnpm --filter @smartshopper/scraper scrape --dry     # run, but don't write to Supabase
  *
- * Reads env from process.env, expects NEXT_PUBLIC_SUPABASE_URL +
- * SUPABASE_SERVICE_ROLE_KEY + GEMINI_API_KEY (the latter optional).
+ * Needs SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY in the env (config is
+ * read from Supabase even in --dry mode — only writes are skipped).
+ * GEMINI_API_KEY is required for the PDF / HTML strategies.
  */
 
-import { runAll, runRetailer, listRetailers } from './index.js';
+import { runAll, runRetailer, listActiveRetailers, type ScraperDeps } from './index.js';
 
 const args = process.argv.slice(2);
 const dry = args.includes('--dry');
 const target = args.find((a) => !a.startsWith('--'));
 
-const deps = {
-  // Skip Supabase writes when --dry. Strategies still run + log results.
-  supabaseUrl: dry ? undefined : process.env.NEXT_PUBLIC_SUPABASE_URL ?? process.env.SUPABASE_URL,
-  supabaseServiceKey: dry ? undefined : process.env.SUPABASE_SERVICE_ROLE_KEY,
+const deps: ScraperDeps = {
+  supabaseUrl: process.env.SUPABASE_URL ?? process.env.NEXT_PUBLIC_SUPABASE_URL,
+  supabaseServiceKey: process.env.SUPABASE_SERVICE_ROLE_KEY,
   geminiApiKey: process.env.GEMINI_API_KEY,
+  dryRun: dry,
 };
 
 async function main() {
   if (target === 'list') {
-    console.log(listRetailers().join('\n'));
+    console.log((await listActiveRetailers(deps)).join('\n'));
     return;
   }
   if (target) {
