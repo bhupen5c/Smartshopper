@@ -24,6 +24,7 @@ export function createGeminiClient(apiKey: string | undefined, defaultModel?: st
     async generateJson<T>(args: {
       prompt: string;
       inlineDataUrl?: string;
+      inlineDataBase64?: string;
       inlineDataMimeType?: string;
       responseSchema: ZodType<T>;
       model?: string;
@@ -39,7 +40,12 @@ export function createGeminiClient(apiKey: string | undefined, defaultModel?: st
           const parts: Array<{ text?: string; inlineData?: { mimeType: string; data: string } }> =
             [{ text: args.prompt }];
 
-          if (args.inlineDataUrl && args.inlineDataMimeType) {
+          if (args.inlineDataBase64 && args.inlineDataMimeType) {
+            // Caller already fetched + encoded the asset.
+            parts.push({
+              inlineData: { mimeType: args.inlineDataMimeType, data: args.inlineDataBase64 },
+            });
+          } else if (args.inlineDataUrl && args.inlineDataMimeType) {
             // Fetch the asset + base64-encode it. Gemini accepts data inline.
             const res = await fetch(args.inlineDataUrl);
             if (!res.ok) throw new Error(`inlineData fetch ${args.inlineDataUrl} → ${res.status}`);

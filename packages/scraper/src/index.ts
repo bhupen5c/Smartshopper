@@ -1,166 +1,189 @@
 /**
  * @smartshopper/scraper — daily price scraping pipeline.
  *
- * Public API:
- *   - `getStrategy(retailerCode)` — returns the configured strategy for a retailer
- *   - `runRetailer(retailerCode, deps)` — scrapes one retailer end-to-end
- *   - `runAll(deps)` — convenience wrapper that runs every active retailer
- *   - `createGeminiClient`, `createSupabaseWriter` — DI helpers
+ * Config-driven: the `retailers` table in Supabase says which retailers
+ * to scrape, with what `scraping_strategy`, and (for PDF retailers) the
+ * `catalogue_url` to read. Changing a catalogue URL is a DB update, not
+ * a deploy.
  *
- * Strategies map 1:1 to the `scraping_strategy` column on the `retailers`
- * Supabase table:
- *   - 'direct_api'   → ./strategies/coles.ts (and woolworths.ts, TODO)
- *   - 'gemini_html'  → ./strategies/gemini-html.ts (configured per retailer)
- *   - 'gemini_pdf'   → TODO
- *   - 'derived'      → ./strategies/derive-convenience.ts
- *   - 'none'         → not scheduled
+ * Strategy column → implementation:
+ *   - 'gemini_pdf'  → strategies/gemini-pdf.ts   (catalogue PDF + Gemini Vision)
+ *   - 'gemini_html' → strategies/gemini-html.ts  (HTML catalogue + Gemini)
+ *   - 'derived'     → strategies/derive-convenience.ts (markup over supermarket base)
+ *   - 'direct_api' / 'none' → skipped (no working implementation)
+ *
+ * Public API:
+ *   - `runRetailer(code, deps)` — scrape one retailer end-to-end
+ *   - `runAll(deps)` — scrape every active retailer (supermarkets first)
  */
 
-import type { RetailerStrategy, ScrapeRunResult } from './types.js';
+import type { RetailerStrategy, ScrapeRunResult, ScrapedPrice } from './types.js';
 import { createGeminiClient } from './gemini.js';
-import { createSupabaseWriter, type SupabaseWriter } from './supabase.js';
-import { colesStrategy } from './strategies/coles.js';
+import {
+  createSupabaseWriter,
+  fetchScrapeConfig,
+  type SupabaseWriter,
+  type RetailerConfig,
+  type ProductConfig,
+} from './supabase.js';
 import { deriveConvenienceStrategy } from './strategies/derive-convenience.js';
 import { geminiHtmlStrategy } from './strategies/gemini-html.js';
+import { geminiPdfStrategy } from './strategies/gemini-pdf.js';
 
 export * from './types.js';
 export { createGeminiClient } from './gemini.js';
-export { createSupabaseWriter } from './supabase.js';
-
-/** Static registry of strategies. Mirrors retailers table seed in migration 0002. */
-const STRATEGIES: Record<string, () => RetailerStrategy> = {
-  coles: () => colesStrategy(),
-  // Woolworths — TODO: implement /apis/ui/v2/products endpoint
-  // woolworths: () => woolworthsStrategy(),
-
-  // Indies / IGA via Gemini HTML
-  iga: () =>
-    geminiHtmlStrategy({
-      retailerCode: 'iga',
-      catalogueUrl: 'https://www.iga.com.au/catalogue/',
-      products: [
-        { productId: 'p01', hint: 'Pauls Full Cream Milk 2L' },
-        { productId: 'p05', hint: 'Tip Top White Bread 700g' },
-        { productId: 'p09', hint: "Arnott's Tim Tam Original 200g" },
-        { productId: 'p14', hint: 'Coca-Cola Classic 2L' },
-        { productId: 'p38', hint: 'Eggs 12 pack cage free' },
-      ],
-    }),
-
-  // Convenience / servo — derived from supermarket base.
-  // Markups match the retailers table seed.
-  seven_eleven: () => deriveConvenienceStrategy({ retailerCode: 'seven_eleven', markup: 1.50 }),
-  nightowl:     () => deriveConvenienceStrategy({ retailerCode: 'nightowl',     markup: 1.45 }),
-  lucky_7:      () => deriveConvenienceStrategy({ retailerCode: 'lucky_7',      markup: 1.40 }),
-  bp:           () => deriveConvenienceStrategy({ retailerCode: 'bp',           markup: 1.60 }),
-  ampol:        () => deriveConvenienceStrategy({ retailerCode: 'ampol',        markup: 1.55 }),
-  shell:        () => deriveConvenienceStrategy({ retailerCode: 'shell',        markup: 1.55 }),
-  mobil:        () => deriveConvenienceStrategy({ retailerCode: 'mobil',        markup: 1.55 }),
-  united:       () => deriveConvenienceStrategy({ retailerCode: 'united',       markup: 1.50 }),
-  otr:          () => deriveConvenienceStrategy({ retailerCode: 'otr',          markup: 1.40 }),
-};
-
-export function getStrategy(retailerCode: string): RetailerStrategy | null {
-  const factory = STRATEGIES[retailerCode];
-  return factory ? factory() : null;
-}
-
-export function listRetailers(): string[] {
-  return Object.keys(STRATEGIES);
-}
+export { createSupabaseWriter, fetchScrapeConfig } from './supabase.js';
 
 /** Dependencies for running scrapers. Defaults read from env. */
 export interface ScraperDeps {
   geminiApiKey?: string;
   supabaseUrl?: string;
   supabaseServiceKey?: string;
+  /** When true, run strategies + read config but don't write results. */
+  dryRun?: boolean;
   log?: (msg: string, extra?: Record<string, unknown>) => void;
 }
 
-interface ResolvedDeps {
+interface Resolved {
   gemini: ReturnType<typeof createGeminiClient>;
   writer: SupabaseWriter | null;
+  supabaseUrl: string | undefined;
+  supabaseKey: string | undefined;
   log: (msg: string, extra?: Record<string, unknown>) => void;
 }
 
-function resolve(deps: ScraperDeps): ResolvedDeps {
+function resolve(deps: ScraperDeps): Resolved {
+  const supabaseUrl =
+    deps.supabaseUrl ?? process.env.SUPABASE_URL ?? process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const supabaseKey = deps.supabaseServiceKey ?? process.env.SUPABASE_SERVICE_ROLE_KEY;
   return {
     gemini: createGeminiClient(deps.geminiApiKey ?? process.env.GEMINI_API_KEY),
-    writer: createSupabaseWriter(
-      deps.supabaseUrl ?? process.env.NEXT_PUBLIC_SUPABASE_URL ?? process.env.SUPABASE_URL,
-      deps.supabaseServiceKey ?? process.env.SUPABASE_SERVICE_ROLE_KEY,
-    ),
+    // dryRun reads config but writes nothing.
+    writer: deps.dryRun ? null : createSupabaseWriter(supabaseUrl, supabaseKey),
+    supabaseUrl,
+    supabaseKey,
     log: deps.log ?? ((msg) => console.log(`[scraper] ${msg}`)),
   };
 }
 
 /**
- * Scrape one retailer end-to-end:
- *   1. Run the strategy
- *   2. Persist `scrape_runs` + `prices` rows
- *   3. Return the result so callers can chain
+ * List the codes of every active retailer that has a runnable strategy.
+ * Used by the cron fan-out to know what to enqueue.
+ */
+export async function listActiveRetailers(deps: ScraperDeps): Promise<string[]> {
+  const { supabaseUrl, supabaseKey } = resolve(deps);
+  const config = await fetchScrapeConfig(supabaseUrl, supabaseKey);
+  if (!config) return [];
+  return config.retailers
+    .filter((r) => strategyFor(r, config.products) !== null)
+    .map((r) => r.code);
+}
+
+/** Build the strategy for a retailer from its DB config. */
+function strategyFor(
+  retailer: RetailerConfig,
+  products: ProductConfig[],
+): RetailerStrategy | null {
+  switch (retailer.scrapingStrategy) {
+    case 'gemini_pdf':
+      if (!retailer.catalogueUrl) return null;
+      return geminiPdfStrategy({
+        retailerCode: retailer.code,
+        catalogueUrl: retailer.catalogueUrl,
+        products: products.map((p) => ({
+          productId: p.id,
+          description: `${p.brand} ${p.name} ${p.size ?? ''}`.trim(),
+        })),
+      });
+    case 'gemini_html':
+      if (!retailer.catalogueUrl) return null;
+      return geminiHtmlStrategy({
+        retailerCode: retailer.code,
+        catalogueUrl: retailer.catalogueUrl,
+        products: products.map((p) => ({
+          productId: p.id,
+          hint: `${p.brand} ${p.name} ${p.size ?? ''}`.trim(),
+        })),
+      });
+    case 'derived':
+      return deriveConvenienceStrategy({
+        retailerCode: retailer.code,
+        markup: retailer.derivedMarkup ?? 1.5,
+      });
+    default:
+      // 'direct_api', 'none', or anything unrecognised — no scrape.
+      return null;
+  }
+}
+
+/** Persist a strategy result to Supabase. Returns rows written. */
+async function persist(writer: SupabaseWriter | null, result: ScrapeRunResult): Promise<number> {
+  if (!writer) return 0;
+  const runId = await writer.insertScrapeRun(result);
+  if (!runId) return 0;
+  return writer.insertPrices(runId, result.prices);
+}
+
+/**
+ * Scrape one retailer end-to-end. Reads config from Supabase to find the
+ * retailer's strategy + catalogue URL.
  */
 export async function runRetailer(
   retailerCode: string,
   deps: ScraperDeps,
 ): Promise<ScrapeRunResult> {
-  const strategy = getStrategy(retailerCode);
-  if (!strategy) throw new Error(`No scrape strategy for ${retailerCode}`);
+  const { gemini, writer, supabaseUrl, supabaseKey, log } = resolve(deps);
 
-  const { gemini, writer, log } = resolve(deps);
-  log(`▶ scraping ${retailerCode}`);
+  const config = await fetchScrapeConfig(supabaseUrl, supabaseKey);
+  if (!config) throw new Error('Cannot read scrape config — Supabase not configured');
 
-  const result = await strategy.scrape({
-    gemini,
-    knownPrices: [], // single-retailer mode: derived strategies will skip
-    log,
-  });
+  const retailer = config.retailers.find((r) => r.code === retailerCode);
+  if (!retailer) throw new Error(`Retailer ${retailerCode} not found / not active`);
 
-  if (writer) {
-    const runId = await writer.insertScrapeRun(result);
-    if (runId) {
-      const inserted = await writer.insertPrices(runId, result.prices);
-      log(`  ✓ ${retailerCode}: ${inserted} prices written (run ${runId})`);
-    } else {
-      log(`  ✗ ${retailerCode}: failed to record scrape_run`);
-    }
+  const strategy = strategyFor(retailer, config.products);
+  if (!strategy) {
+    throw new Error(
+      `No runnable strategy for ${retailerCode} (strategy=${retailer.scrapingStrategy}, catalogue_url=${retailer.catalogueUrl ?? 'none'})`,
+    );
   }
 
+  log(`▶ scraping ${retailerCode} via ${retailer.scrapingStrategy}`);
+  const result = await strategy.scrape({ gemini, knownPrices: [], log });
+  const written = await persist(writer, result);
+  log(`  ${result.ok ? '✓' : '✗'} ${retailerCode}: ${result.itemsEmitted} items, ${written} written`);
   return result;
 }
 
 /**
- * Run every active retailer in sequence. Supermarkets first so their
- * prices populate `knownPrices` for the derived convenience strategies.
+ * Scrape every active retailer. Supermarkets + indies first (so their
+ * prices feed the derived convenience strategies), derived retailers last.
  */
 export async function runAll(deps: ScraperDeps): Promise<ScrapeRunResult[]> {
-  const { gemini, writer, log } = resolve(deps);
+  const { gemini, writer, supabaseUrl, supabaseKey, log } = resolve(deps);
+
+  const config = await fetchScrapeConfig(supabaseUrl, supabaseKey);
+  if (!config) throw new Error('Cannot read scrape config — Supabase not configured');
+
+  // Two passes: real scrapes first so knownPrices is populated, then derived.
+  const realRetailers = config.retailers.filter((r) => r.scrapingStrategy !== 'derived');
+  const derivedRetailers = config.retailers.filter((r) => r.scrapingStrategy === 'derived');
+
   const results: ScrapeRunResult[] = [];
-  const knownPrices: ScrapeRunResult['prices'] = [];
+  const knownPrices: ScrapedPrice[] = [];
 
-  // Two-pass: supermarkets/indies first, then derived convenience.
-  const order = [
-    'coles', 'woolworths', 'aldi', 'iga',                                       // tier 1
-    'foodland', 'drakes', 'foodworks', 'harris_farm', 'spudshed', 'ritchies',   // tier 2
-    'seven_eleven', 'nightowl', 'lucky_7', 'bp', 'ampol', 'shell', 'mobil', 'united', 'otr', // derived
-  ];
-
-  for (const code of order) {
-    const strategy = getStrategy(code);
+  for (const retailer of [...realRetailers, ...derivedRetailers]) {
+    const strategy = strategyFor(retailer, config.products);
     if (!strategy) {
-      log(`  ⤵ ${code}: no strategy registered, skipping`);
+      log(`  ⤵ ${retailer.code}: no runnable strategy (${retailer.scrapingStrategy}), skipping`);
       continue;
     }
     try {
       const result = await strategy.scrape({ gemini, knownPrices, log });
       results.push(result);
       knownPrices.push(...result.prices);
-      if (writer) {
-        const runId = await writer.insertScrapeRun(result);
-        if (runId) await writer.insertPrices(runId, result.prices);
-      }
+      await persist(writer, result);
     } catch (err) {
-      log(`  ✗ ${code} threw: ${(err as Error).message}`);
+      log(`  ✗ ${retailer.code} threw: ${(err as Error).message}`);
     }
   }
 

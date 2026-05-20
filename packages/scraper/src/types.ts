@@ -65,8 +65,10 @@ export interface GeminiClient {
   /** Send a text prompt + return parsed JSON (validated against responseSchema). */
   generateJson<T>(args: {
     prompt: string;
-    /** Optional URL of an image / PDF / HTML for Gemini Vision. */
+    /** Optional URL of an image / PDF for Gemini Vision — fetched + inlined. */
     inlineDataUrl?: string;
+    /** Optional pre-fetched base64 payload (e.g. a PDF already downloaded). */
+    inlineDataBase64?: string;
     inlineDataMimeType?: string;
     responseSchema: z.ZodType<T>;
     model?: string;
