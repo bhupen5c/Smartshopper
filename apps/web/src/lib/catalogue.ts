@@ -175,13 +175,15 @@ export interface RealStoreLike {
 function pickNearestPerRetailer(
   origin: { lat: number; lng: number },
   realStores: readonly RealStoreLike[],
+  kind: 'supermarket' | 'convenience' = 'supermarket',
 ): StoreInfo[] {
+  const wantConvenience = kind === 'convenience';
   const byRetailer = new Map<string, RealStoreLike>();
   for (const s of realStores) {
-    // For the main basket optimiser we only want full-size supermarkets —
-    // a 7-Eleven won't carry a 5kg rice bag. Convenience hits still show
-    // on the map for context but don't participate in offer ranking.
-    if (s.isConvenience) continue;
+    // The main optimiser wants full-size supermarkets — a 7-Eleven won't
+    // carry a 5 kg rice bag. Convenience outlets are picked separately, as
+    // a fallback for areas no supermarket reaches.
+    if (s.isConvenience !== wantConvenience) continue;
     const existing = byRetailer.get(s.retailerCode);
     const d = s.distanceKm ?? haversineKm(origin, s);
     if (!existing || d < (existing.distanceKm ?? haversineKm(origin, existing))) {
@@ -198,7 +200,7 @@ function pickNearestPerRetailer(
     address: s.address,
     lat: s.lat,
     lng: s.lng,
-    isConvenience: false,
+    isConvenience: wantConvenience,
   }));
 }
 
@@ -520,6 +522,11 @@ const CONVENIENCE_PRICES: ConveniencePrice[] = [
   { productId: 'p35', retailerCode: 'bp', price: 8.80 },
 ];
 
+/** Convenience-store retailer codes we hold top-up pricing for. */
+export const CONVENIENCE_RETAILER_CODES: string[] = [
+  ...new Set(CONVENIENCE_PRICES.map((c) => c.retailerCode)),
+];
+
 export interface PriceQuote {
   productId: string;
   retailerCode: string;
@@ -622,21 +629,23 @@ export function buildOffers(
   realStores: readonly RealStoreLike[] = [],
   livePrices?: readonly LivePriceEntry[],
 ): OptimiserOffer[] {
-  const nearbyStores = pickNearestPerRetailer(origin, realStores);
-  _lastStores = nearbyStores;
+  const supermarketStores = pickNearestPerRetailer(origin, realStores);
   const storeByRetailer = new Map<string, StoreInfo>();
-  for (const s of nearbyStores) {
+  for (const s of supermarketStores) {
     storeByRetailer.set(s.retailerCode, s);
   }
 
-  const haveRealData = nearbyStores.length > 0;
+  // "Real data" = OSM returned at least one store of any kind. When true we
+  // refuse to fake a supermarket location; when false (OSM unreachable) we
+  // fall back to estimated distances from the origin.
+  const haveRealData = realStores.length > 0;
   // Use live scraped prices when available; otherwise fall back to the
   // in-repo PRICE_MATRIX. The shape is identical so the rest of the
   // function doesn't care.
   const priceSource: readonly { productId: string; retailerCode: string; price: number; isTrueSpecial: boolean; memberOnly: boolean }[] =
     livePrices && livePrices.length > 0 ? livePrices : PRICE_MATRIX;
 
-  return priceSource.flatMap((pe) => {
+  const supermarketOffers = priceSource.flatMap((pe) => {
     const store = storeByRetailer.get(pe.retailerCode);
     const product = CATALOGUE_PRODUCTS.find((p) => p.id === pe.productId);
     // Skip orphan prices for products we don't have in the catalogue.
@@ -660,6 +669,41 @@ export function buildOffers(
       distanceKm: Math.round(dist * 10) / 10,
       isTrueSpecial: pe.isTrueSpecial,
       memberOnly: pe.memberOnly,
+      inStock: true,
+    }];
+  });
+
+  if (supermarketOffers.length > 0) {
+    _lastStores = supermarketStores;
+    return supermarketOffers;
+  }
+
+  // Fallback: OSM found stores but no full-size supermarket is in range.
+  // Offer nearby convenience stores so the optimiser can still rank a
+  // value-for-money plan instead of leaving the shopper with nothing.
+  const convenienceStores = pickNearestPerRetailer(origin, realStores, 'convenience').filter(
+    (s) => CONVENIENCE_RETAILER_CODES.includes(s.retailerCode),
+  );
+  _lastStores = convenienceStores;
+  const convByRetailer = new Map(convenienceStores.map((s) => [s.retailerCode, s]));
+
+  return CONVENIENCE_PRICES.flatMap((cp) => {
+    const store = convByRetailer.get(cp.retailerCode);
+    if (!store) return [];
+    const product = CATALOGUE_PRODUCTS.find((p) => p.id === cp.productId);
+    if (!product) return [];
+    const dist = haversineKm(origin, store);
+    return [{
+      retailerCode: cp.retailerCode,
+      retailerProductId: `${cp.retailerCode}-${cp.productId}`,
+      productId: cp.productId,
+      productName: product.name,
+      price: cp.price,
+      storeId: store.storeId,
+      storeLocation: { lat: store.lat, lng: store.lng },
+      distanceKm: Math.round(dist * 10) / 10,
+      isTrueSpecial: false,
+      memberOnly: false,
       inStock: true,
     }];
   });

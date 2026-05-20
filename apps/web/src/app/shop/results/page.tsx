@@ -5,7 +5,13 @@ import { useRouter } from 'next/navigation';
 import { ArrowLeft, ShoppingCart, Truck, MapPin, Award, AlertTriangle, Star, Clock, Loader2 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useShop } from '@/lib/shop-context';
-import { buildOffers, CATALOGUE_PRODUCTS, getNearestStores, getAllPricesFor } from '@/lib/catalogue';
+import {
+  buildOffers,
+  CATALOGUE_PRODUCTS,
+  getNearestStores,
+  getAllPricesFor,
+  CONVENIENCE_RETAILER_CODES,
+} from '@/lib/catalogue';
 import { formatAUD } from '@/lib/utils';
 import { optimiseBasket } from '@smartshopper/core/basket';
 import { recommendFulfilment } from '@smartshopper/core/delivery';
@@ -71,6 +77,14 @@ export default function ResultsPage() {
 
     const offers = [...baseOffers, ...extraOffers];
 
+    // buildOffers() returns supermarket offers, or — where no supermarket is
+    // in range — nearby convenience stores. Allow whatever it produced so the
+    // optimiser can value-rank it.
+    const allowedRetailers = [...new Set(baseOffers.map((o) => o.retailerCode))];
+    const convenienceFallback =
+      allowedRetailers.length > 0 &&
+      allowedRetailers.every((c) => CONVENIENCE_RETAILER_CODES.includes(c));
+
     const plans = optimiseBasket({
       items: resolvedItems,
       offers,
@@ -80,7 +94,7 @@ export default function ResultsPage() {
         maxTravelKm: preferences.maxTravelKm,
         fuelCostPerKm: preferences.fuelCostPerKm,
         timeValuePerHour: preferences.timeValuePerHour,
-        allowedRetailers: ['coles', 'woolworths', 'aldi', 'iga'],
+        allowedRetailers,
         loyaltyMemberships: preferences.loyaltyMemberships,
         activeSubscriptions: preferences.activeSubscriptions,
         noCarAvailable: preferences.noCarAvailable,
@@ -119,7 +133,7 @@ export default function ResultsPage() {
       }
     }
 
-    return { plans, fulfilmentByRetailer, assignedStores };
+    return { plans, fulfilmentByRetailer, assignedStores, convenienceFallback };
   }, [items, origin, preferences, nearbyStores, livePrices]);
 
   if (!hydrated) return null;
@@ -156,7 +170,7 @@ export default function ResultsPage() {
     );
   }
 
-  const { plans, fulfilmentByRetailer, assignedStores } = results;
+  const { plans, fulfilmentByRetailer, assignedStores, convenienceFallback } = results;
   const storesByRetailer = new Map(assignedStores.map((s) => [s.retailerCode, s]));
   const unresolvedItems = items.filter((i) => !i.productId && !i.genericType);
   const bestPlan = plans[0]!;
@@ -216,6 +230,16 @@ export default function ResultsPage() {
         <div className="rounded-xl border-[1.5px] border-ink bg-tomato/15 p-3 text-sm">
           We couldn&apos;t reach OpenStreetMap, so we&apos;re using estimated distances from
           your postcode centroid.
+        </div>
+      )}
+      {convenienceFallback && (
+        <div className="flex items-start gap-2 rounded-xl border-[1.5px] border-ink bg-tomato/15 p-3 text-sm">
+          <AlertTriangle className="mt-0.5 size-4 shrink-0" style={{ color: 'var(--tomato)' }} />
+          <div>
+            No full-size supermarket within range — ranking the best value across nearby{' '}
+            <strong>convenience stores</strong> instead. Expect higher prices than a
+            supermarket shop.
+          </div>
         </div>
       )}
 
