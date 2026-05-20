@@ -29,8 +29,16 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 });
   }
 
+  // CRON_SECRET is mandatory — this worker writes to the DB + spends
+  // Gemini credits, so it must never be callable unauthenticated.
   const cronSecret = process.env.CRON_SECRET;
-  if (cronSecret && body.cronSecret !== cronSecret) {
+  if (!cronSecret) {
+    return NextResponse.json(
+      { error: 'CRON_SECRET not configured' },
+      { status: 503 },
+    );
+  }
+  if (body.cronSecret !== cronSecret) {
     return NextResponse.json({ error: 'CRON_SECRET mismatch' }, { status: 401 });
   }
 
