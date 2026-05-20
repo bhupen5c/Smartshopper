@@ -124,6 +124,7 @@ export function quoteFulfilment(input: QuoteInput, mode: FulfilmentMode): Quote 
   let fee = 0;
   let eligible = true;
   let ineligibleReason: string | null = null;
+  let subscriptionApplied = false;
 
   if (mode === 'delivery') {
     if (input.basketSubtotal < input.policy.minimumSpend) {
@@ -133,7 +134,9 @@ export function quoteFulfilment(input: QuoteInput, mode: FulfilmentMode): Quote 
       )} minimum for delivery.`;
     }
     const raw = deliveryFee(input.policy, input.basketSubtotal, scheduledAt);
-    fee = subscriptionAdjustedFee(raw, input.policy, activeSubs).fee;
+    const adjusted = subscriptionAdjustedFee(raw, input.policy, activeSubs);
+    fee = adjusted.fee;
+    subscriptionApplied = adjusted.matched !== null;
   } else if (mode === 'click_and_collect' || mode === 'direct_to_boot') {
     if (input.basketSubtotal < input.policy.clickAndCollectMinimum) {
       eligible = false;
@@ -177,6 +180,7 @@ export function quoteFulfilment(input: QuoteInput, mode: FulfilmentMode): Quote 
       ineligibleReason,
       isWalkable,
       walkingMinutes: Math.round(walkingMinutesOneWay * 2),
+      subscriptionApplied,
     }),
     eligible,
     ineligibleReason,
@@ -196,6 +200,7 @@ function buildExplanation(opts: {
   ineligibleReason: string | null;
   isWalkable: boolean;
   walkingMinutes: number;
+  subscriptionApplied: boolean;
 }): string {
   if (!opts.eligible) return opts.ineligibleReason ?? 'Not eligible.';
   const parts: string[] = [];
@@ -206,8 +211,10 @@ function buildExplanation(opts: {
           0,
         )} free-delivery threshold.`,
       );
-    } else if (opts.fee === 0) {
+    } else if (opts.fee === 0 && opts.subscriptionApplied) {
       parts.push('Delivery is free with your active subscription.');
+    } else if (opts.fee === 0) {
+      parts.push('This retailer charges no delivery fee.');
     } else {
       parts.push(`Delivery fee is $${opts.fee.toFixed(2)}.`);
     }
