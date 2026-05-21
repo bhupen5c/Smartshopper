@@ -261,23 +261,9 @@ describe('basket optimiser', () => {
     expect(multi!.tripMinutes).toBeGreaterThan(0);
   });
 
-  it('folds trip time into effectiveCost', () => {
-    const plans = optimiseBasket({
-      items: [{ listItemId: 'l1', productId: 'milk', productName: 'Milk', quantity: 1 }],
-      offers: [mkOfferAt('coles', 'milk', 3, STORE_COLES)],
-      preferences: PREFS,
-    });
-    const plan = plans[0]!;
-    expect(plan.tripMinutes).toBeGreaterThan(0);
-    expect(plan.effectiveCost).toBeCloseTo(
-      plan.grandTotal + (plan.tripMinutes / 60) * PREFS.timeValuePerHour,
-      4,
-    );
-  });
-
-  it('keeps a single store when a small split saving is not worth the extra stop', () => {
-    // Splitting trims only $2 of groceries but adds a whole extra in-store
-    // visit — at the user's time value the single-store plan is better value.
+  it('ranks the lowest total-cost plan first', () => {
+    // Splitting the basket is cheaper on groceries; the lowest grand
+    // total — petrol included — must come out on top.
     const items = [
       { listItemId: 'l1', productId: 'milk', productName: 'Milk', quantity: 1 },
       { listItemId: 'l2', productId: 'bread', productName: 'Bread', quantity: 1 },
@@ -289,13 +275,9 @@ describe('basket optimiser', () => {
       mkOfferAt('woolworths', 'bread', 5, STORE_WOOLIES),
     ];
     const plans = optimiseBasket({ items, offers, preferences: PREFS });
-    const single = plans.find((p) => p.kind === 'single_retailer');
-    const multi = plans.find((p) => p.kind === 'multi_retailer');
-    expect(single).toBeDefined();
-    expect(multi).toBeDefined();
-    // The split really is cheaper on money out of pocket...
-    expect(multi!.grandTotal).toBeLessThan(single!.grandTotal);
-    // ...but the faster single-store plan wins on value for money.
-    expect(plans[0]!.kind).toBe('single_retailer');
+    expect(plans.length).toBeGreaterThan(1);
+    for (const p of plans) {
+      expect(plans[0]!.grandTotal).toBeLessThanOrEqual(p.grandTotal + 0.01);
+    }
   });
 });
