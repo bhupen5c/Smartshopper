@@ -4,17 +4,18 @@ import Link from 'next/link';
 import { Fragment } from 'react';
 import { motion } from 'framer-motion';
 
-const TICKER_ITEMS: Array<{ name: string; price: string; retailer: string; dir: 'up' | 'down' }> = [
-  { name: 'TIM TAM 200G', price: '$2.75', retailer: 'COLES', dir: 'down' },
-  { name: 'MILK 2L', price: '$3.19', retailer: 'ALDI', dir: 'down' },
-  { name: 'WEET-BIX 1.2KG', price: '$5.20', retailer: 'COLES', dir: 'down' },
-  { name: 'CHICKEN BREAST 1KG', price: '$11.00', retailer: 'WOOLIES', dir: 'down' },
-  { name: 'TASTY CHEESE 500G', price: '$8.50', retailer: 'WOOLIES', dir: 'down' },
-  { name: 'OLIVE OIL 750ML', price: '$10.00', retailer: 'WOOLIES', dir: 'down' },
-  { name: 'NESCAFE 500G', price: '$18.00', retailer: 'WOOLIES', dir: 'down' },
-  { name: 'COKE 2L', price: '$2.85', retailer: 'COLES', dir: 'up' },
-  { name: 'BREAD 700G', price: '$3.80', retailer: 'COLES', dir: 'down' },
-  { name: 'EGGS 12PK', price: '$4.89', retailer: 'ALDI', dir: 'down' },
+// Representative catalogue prices — a sample strip, not a live feed.
+const TICKER_ITEMS: Array<{ name: string; price: string; retailer: string }> = [
+  { name: 'TIM TAM 200G', price: '$2.75', retailer: 'COLES' },
+  { name: 'MILK 2L', price: '$3.19', retailer: 'ALDI' },
+  { name: 'WEET-BIX 1.2KG', price: '$5.20', retailer: 'COLES' },
+  { name: 'CHICKEN BREAST 1KG', price: '$11.00', retailer: 'WOOLIES' },
+  { name: 'TASTY CHEESE 500G', price: '$8.50', retailer: 'WOOLIES' },
+  { name: 'OLIVE OIL 750ML', price: '$10.00', retailer: 'WOOLIES' },
+  { name: 'NESCAFE 500G', price: '$18.00', retailer: 'WOOLIES' },
+  { name: 'COKE 2L', price: '$2.85', retailer: 'COLES' },
+  { name: 'BREAD 700G', price: '$3.80', retailer: 'COLES' },
+  { name: 'EGGS 12PK', price: '$4.89', retailer: 'ALDI' },
 ];
 
 const LIVE_COMPARISON = [
@@ -42,10 +43,7 @@ export function Hero() {
               {TICKER_ITEMS.map((item, j) => (
                 <Fragment key={`${i}-${j}`}>
                   <span className="ticker__item">
-                    {item.name}{' '}
-                    <span className={item.dir === 'down' ? 'down' : 'up'}>
-                      {item.dir === 'down' ? '↓' : '↑'} {item.price} {item.retailer}
-                    </span>
+                    {item.name} {item.price} {item.retailer}
                   </span>
                   <span>·</span>
                 </Fragment>
@@ -87,9 +85,9 @@ export function Hero() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 0.3 }}
           >
-            SmartShopper compares prices across <span className="mark-lime"><b>20+ AU retailers</b></span>{' '}
-            from public catalogues and uses real OpenStreetMap data for nearby stores. One list.
-            Real distances. No fake specials.
+            SmartShopper compares grocery prices at{' '}
+            <span className="mark-lime"><b>Coles, Woolworths, ALDI &amp; IGA</b></span> and uses
+            real OpenStreetMap data for nearby stores. One list. Real distances. No fake specials.
           </motion.p>
 
           <motion.div
@@ -197,7 +195,7 @@ export function Hero() {
             className="absolute -bottom-5 -left-7 rounded-full border-[1.5px] border-ink bg-cobalt px-4 py-2.5 text-[12px] font-semibold uppercase tracking-[0.08em] text-cream shadow-brut"
             style={{ transform: 'rotate(-6deg)' }}
           >
-            ★ 20+ retailers · OSM-powered
+            ★ Real store data · OpenStreetMap
           </div>
         </motion.div>
       </div>

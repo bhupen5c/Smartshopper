@@ -5,11 +5,11 @@ import './globals.css';
 
 export const metadata: Metadata = {
   title: {
-    default: 'SmartShopper — Real specials at Coles, Woolworths, ALDI & IGA',
+    default: 'SmartShopper — Compare grocery prices at Coles, Woolworths, ALDI & IGA',
     template: '%s · SmartShopper',
   },
   description:
-    'Track every supermarket special across Australia. Spot genuine lows, forecast the next drop, optimise your basket, and pick delivery or pickup based on your real total cost.',
+    'Compare grocery prices across Coles, Woolworths, ALDI and IGA, optimise your basket, and choose delivery or pickup based on your real total cost — travel included.',
   applicationName: 'SmartShopper',
   authors: [{ name: 'SmartShopper' }],
   keywords: [
@@ -22,9 +22,9 @@ export const metadata: Metadata = {
     'Australia',
   ],
   openGraph: {
-    title: 'SmartShopper — Real specials at Coles, Woolworths, ALDI & IGA',
+    title: 'SmartShopper — Compare grocery prices at Coles, Woolworths, ALDI & IGA',
     description:
-      'Track every supermarket special. Spot genuine lows, forecast the next drop, optimise your basket.',
+      'Compare grocery prices across Coles, Woolworths, ALDI and IGA and optimise your basket — travel cost included.',
     type: 'website',
     locale: 'en_AU',
   },

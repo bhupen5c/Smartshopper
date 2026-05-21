@@ -227,7 +227,7 @@ export default function ShopListPage() {
                         {gc.label}
                       </div>
                       <div className="text-xs text-gray-500">
-                        Pick the cheapest of {gc.brandCount} brands across all retailers
+                        Pick the cheapest of {gc.brandCount} brands across retailers
                       </div>
                     </div>
                     <Plus className="h-4 w-4 text-emerald-600 shrink-0" />
