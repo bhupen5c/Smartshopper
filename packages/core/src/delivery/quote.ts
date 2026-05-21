@@ -127,7 +127,10 @@ export function quoteFulfilment(input: QuoteInput, mode: FulfilmentMode): Quote 
   let subscriptionApplied = false;
 
   if (mode === 'delivery') {
-    if (input.basketSubtotal < input.policy.minimumSpend) {
+    if (!input.policy.offersDelivery) {
+      eligible = false;
+      ineligibleReason = 'Home delivery is not available — this retailer is in-store only.';
+    } else if (input.basketSubtotal < input.policy.minimumSpend) {
       eligible = false;
       ineligibleReason = `Basket of $${input.basketSubtotal.toFixed(2)} is below the $${input.policy.minimumSpend.toFixed(
         2,
@@ -138,7 +141,10 @@ export function quoteFulfilment(input: QuoteInput, mode: FulfilmentMode): Quote 
     fee = adjusted.fee;
     subscriptionApplied = adjusted.matched !== null;
   } else if (mode === 'click_and_collect' || mode === 'direct_to_boot') {
-    if (input.basketSubtotal < input.policy.clickAndCollectMinimum) {
+    if (!input.policy.offersClickAndCollect) {
+      eligible = false;
+      ineligibleReason = 'Click & collect is not available from this retailer.';
+    } else if (input.basketSubtotal < input.policy.clickAndCollectMinimum) {
       eligible = false;
       ineligibleReason = `Basket of $${input.basketSubtotal.toFixed(2)} is below the $${input.policy.clickAndCollectMinimum.toFixed(
         2,

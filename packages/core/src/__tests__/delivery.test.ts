@@ -136,4 +136,22 @@ describe('delivery recommender', () => {
     expect(far.totalCost).toBeGreaterThan(near.totalCost + 50);
     expect(far.distanceKm).toBeGreaterThan(near.distanceKm + 30);
   });
+
+  it('marks ALDI delivery and click & collect unavailable — it is in-store only', () => {
+    // ALDI runs no first-party delivery or click & collect; only an
+    // in-store visit should be eligible, even for a large basket.
+    const ranked = recommendFulfilment({
+      retailerCode: 'aldi',
+      storeLocation: SOUTH_YARRA,
+      origin: MELBOURNE_CBD,
+      basketSubtotal: 120,
+      policy: DEFAULT_DELIVERY_POLICIES.aldi!,
+      fuelCostPerKm: 0.88,
+      timeValuePerHour: 25,
+    });
+    expect(ranked.find((q) => q.mode === 'delivery')!.eligible).toBe(false);
+    expect(ranked.find((q) => q.mode === 'click_and_collect')!.eligible).toBe(false);
+    expect(ranked.find((q) => q.mode === 'direct_to_boot')!.eligible).toBe(false);
+    expect(ranked.find((q) => q.mode === 'in_store_pickup')!.eligible).toBe(true);
+  });
 });
