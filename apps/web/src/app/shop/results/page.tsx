@@ -189,7 +189,7 @@ export default function ResultsPage() {
       <div className="flex items-end justify-between gap-4">
         <div>
           <div className="font-mono text-xs uppercase tracking-[0.16em] text-ink/70">
-            ◉ BEST DEALS · LIVE
+            ◉ YOUR BEST DEALS
           </div>
           <h1 className="bignum mt-4 text-[clamp(40px,7vw,68px)] leading-[0.95]">
             YOUR <span className="mark-lime">BASKET</span>,
@@ -353,13 +353,7 @@ export default function ResultsPage() {
         </div>
         <div className="mt-5 flex flex-wrap gap-2.5">
           <button onClick={() => router.push('/shop/list')} className="btn-lime text-sm">
-            Get directions →
-          </button>
-          <button
-            onClick={() => router.push('/shop/list')}
-            className="rounded-full border-[1.5px] border-cream bg-transparent px-5 py-3 text-sm font-medium text-cream hover:bg-cream hover:text-ink transition-colors"
-          >
-            Edit list
+            Edit your list →
           </button>
         </div>
       </motion.div>

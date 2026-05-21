@@ -12,8 +12,8 @@ export default function NotFound() {
         <p className="text-xs uppercase tracking-wide text-muted-foreground">404 · Not found</p>
         <h1 className="font-display text-4xl font-semibold">We could not find that page</h1>
         <p className="max-w-md text-muted-foreground">
-          The page you are looking for has moved or does not exist. Try searching the live feed from
-          the home page instead.
+          The page you are looking for has moved or does not exist. Head back to the home page to
+          compare a basket.
         </p>
         <Button asChild>
           <Link href="/">Back to the home page</Link>

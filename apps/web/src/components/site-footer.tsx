@@ -1,5 +1,3 @@
-import Link from 'next/link';
-
 export function SiteFooter() {
   return (
     <footer className="border-t-[1.5px] border-ink bg-ink text-cream">
@@ -18,15 +16,6 @@ export function SiteFooter() {
           </p>
         </div>
         <div className="flex flex-wrap gap-5 text-[12px] font-medium uppercase tracking-[0.04em]">
-          <Link href="/about" className="text-cream/70 hover:text-lime">
-            About
-          </Link>
-          <Link href="/privacy" className="text-cream/70 hover:text-lime">
-            Privacy
-          </Link>
-          <Link href="/terms" className="text-cream/70 hover:text-lime">
-            Terms
-          </Link>
           <a
             href="https://github.com/bhupen5c/Smartshopper"
             target="_blank"
@@ -39,7 +28,7 @@ export function SiteFooter() {
       </div>
       <div className="border-t border-cream/15">
         <div className="container flex items-center justify-between px-6 py-3 font-mono text-[11px] tracking-wider text-cream/60 md:px-10">
-          <span>◉ DATA FROM OPENSTREETMAP · UPDATED EVERY 24H</span>
+          <span>◉ STORE DATA FROM OPENSTREETMAP</span>
           <span>© 2026 SMARTSHOPPER</span>
         </div>
       </div>

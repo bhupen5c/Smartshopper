@@ -109,7 +109,7 @@ export default function ShopPage() {
       <div className="mt-14 grid grid-cols-3 gap-4 border-t-[1.5px] border-ink pt-8">
         {[
           { icon: TrendingDown, n: '01', label: 'Real specials', sub: 'Not cosmetic discounts' },
-          { icon: ShoppingCart, n: '02', label: '20+ retailers', sub: 'Supermarkets, indies, servos' },
+          { icon: ShoppingCart, n: '02', label: 'Major supermarkets', sub: 'Coles, Woolies, ALDI & IGA' },
           { icon: Truck, n: '03', label: 'Real distance', sub: 'OpenStreetMap data' },
         ].map(({ icon: Icon, n, label, sub }, i) => (
           <motion.div
