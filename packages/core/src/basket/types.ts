@@ -119,14 +119,6 @@ export interface OptimiserPlan {
    */
   tripMinutes: number;
   /**
-   * The value-for-money score the optimiser ranks plans by. It folds the
-   * user's time into the comparison: grandTotal + tripMinutes priced at
-   * the user's timeValuePerHour. `grandTotal` itself stays money-only for
-   * display — effectiveCost is what decides which plan wins, so a plan a
-   * few dollars cheaper but an hour slower correctly loses.
-   */
-  effectiveCost: number;
-  /**
    * How much this plan saves vs. the best single-retailer plan.
    * Positive = this plan is cheaper. Null on the single-retailer plan itself.
    */
