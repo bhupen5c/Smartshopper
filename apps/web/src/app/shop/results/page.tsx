@@ -5,7 +5,13 @@ import { useRouter } from 'next/navigation';
 import { ArrowLeft, ShoppingCart, Truck, MapPin, Award, AlertTriangle, Star, Clock, Loader2 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useShop } from '@/lib/shop-context';
-import { buildOffers, CATALOGUE_PRODUCTS, getNearestStores, getAllPricesFor } from '@/lib/catalogue';
+import {
+  buildOffers,
+  CATALOGUE_PRODUCTS,
+  getNearestStores,
+  getAllPricesFor,
+  CONVENIENCE_RETAILER_CODES,
+} from '@/lib/catalogue';
 import { formatAUD } from '@/lib/utils';
 import { optimiseBasket } from '@smartshopper/core/basket';
 import { recommendFulfilment } from '@smartshopper/core/delivery';
@@ -71,6 +77,14 @@ export default function ResultsPage() {
 
     const offers = [...baseOffers, ...extraOffers];
 
+    // buildOffers() returns supermarket offers, or — where no supermarket is
+    // in range — nearby convenience stores. Allow whatever it produced so the
+    // optimiser can value-rank it.
+    const allowedRetailers = [...new Set(baseOffers.map((o) => o.retailerCode))];
+    const convenienceFallback =
+      allowedRetailers.length > 0 &&
+      allowedRetailers.every((c) => CONVENIENCE_RETAILER_CODES.includes(c));
+
     const plans = optimiseBasket({
       items: resolvedItems,
       offers,
@@ -80,7 +94,7 @@ export default function ResultsPage() {
         maxTravelKm: preferences.maxTravelKm,
         fuelCostPerKm: preferences.fuelCostPerKm,
         timeValuePerHour: preferences.timeValuePerHour,
-        allowedRetailers: ['coles', 'woolworths', 'aldi', 'iga'],
+        allowedRetailers,
         loyaltyMemberships: preferences.loyaltyMemberships,
         activeSubscriptions: preferences.activeSubscriptions,
         noCarAvailable: preferences.noCarAvailable,
@@ -119,7 +133,7 @@ export default function ResultsPage() {
       }
     }
 
-    return { plans, fulfilmentByRetailer, assignedStores };
+    return { plans, fulfilmentByRetailer, assignedStores, convenienceFallback };
   }, [items, origin, preferences, nearbyStores, livePrices]);
 
   if (!hydrated) return null;
@@ -156,13 +170,19 @@ export default function ResultsPage() {
     );
   }
 
-  const { plans, fulfilmentByRetailer, assignedStores } = results;
+  const { plans, fulfilmentByRetailer, assignedStores, convenienceFallback } = results;
   const storesByRetailer = new Map(assignedStores.map((s) => [s.retailerCode, s]));
   const unresolvedItems = items.filter((i) => !i.productId && !i.genericType);
   const bestPlan = plans[0]!;
   const bestSinglePlan = plans.find((p) => p.kind === 'single_retailer');
   const multiPlan = plans.find((p) => p.kind === 'multi_retailer');
-  const WORTH_SPLIT_THRESHOLD = 3.0; // dollars
+  // Priciest plan on money — the "you'd otherwise pay" baseline. Plans are
+  // ranked by value (money + time), so the last card isn't necessarily it.
+  const worstPlan = plans.reduce((a, b) => (a.grandTotal >= b.grandTotal ? a : b));
+  // Is splitting the basket genuinely better value than one store, once the
+  // extra driving and in-store time is priced in?
+  const splitWorthIt =
+    !!bestSinglePlan && !!multiPlan && multiPlan.effectiveCost < bestSinglePlan.effectiveCost;
 
   return (
     <div className="mx-auto max-w-4xl space-y-6 px-6 py-8">
@@ -212,6 +232,16 @@ export default function ResultsPage() {
           your postcode centroid.
         </div>
       )}
+      {convenienceFallback && (
+        <div className="flex items-start gap-2 rounded-xl border-[1.5px] border-ink bg-tomato/15 p-3 text-sm">
+          <AlertTriangle className="mt-0.5 size-4 shrink-0" style={{ color: 'var(--tomato)' }} />
+          <div>
+            No full-size supermarket within range — ranking the best value across nearby{' '}
+            <strong>convenience stores</strong> instead. Expect higher prices than a
+            supermarket shop.
+          </div>
+        </div>
+      )}
 
       {/* INK VERDICT CARD — the eye-catcher (from comparison artboard) */}
       <motion.div
@@ -232,18 +262,15 @@ export default function ResultsPage() {
             {formatAUD(bestPlan.grandTotal)}
           </div>
           <div className="pb-1 text-sm sm:text-base">
-            {plans.length > 1 && plans[plans.length - 1]!.grandTotal > bestPlan.grandTotal && (
+            {worstPlan.grandTotal > bestPlan.grandTotal && (
               <>
                 <div className="line-through text-cream/40">
-                  {formatAUD(plans[plans.length - 1]!.grandTotal)} otherwise
+                  {formatAUD(worstPlan.grandTotal)} otherwise
                 </div>
                 <div className="font-bold" style={{ color: 'var(--lime)' }}>
-                  Save{' '}
-                  {formatAUD(plans[plans.length - 1]!.grandTotal - bestPlan.grandTotal)} (
+                  Save {formatAUD(worstPlan.grandTotal - bestPlan.grandTotal)} (
                   {Math.round(
-                    ((plans[plans.length - 1]!.grandTotal - bestPlan.grandTotal) /
-                      plans[plans.length - 1]!.grandTotal) *
-                      100,
+                    ((worstPlan.grandTotal - bestPlan.grandTotal) / worstPlan.grandTotal) * 100,
                   )}
                   %)
                 </div>
@@ -291,6 +318,16 @@ export default function ResultsPage() {
         {bestPlan.totalTravelCost > 0 && (
           <div className="mt-1 font-mono text-[10px] italic text-cream/40">
             * travel cost estimated — assumes driving at ${preferences.fuelCostPerKm.toFixed(2)}/km
+          </div>
+        )}
+        {bestPlan.tripMinutes > 0 && (
+          <div className="mt-2 flex flex-wrap items-center gap-x-2 font-mono text-[11px] text-cream/55">
+            <Clock className="size-3" />
+            <span>~{Math.round(bestPlan.tripMinutes)} MIN ROUND TRIP</span>
+            {bestPlan.route.totalKm > 0 && <span>· {bestPlan.route.totalKm.toFixed(1)} KM</span>}
+            {bestPlan.route.legs.length > 1 && (
+              <span>· {bestPlan.route.legs.length} STOPS</span>
+            )}
           </div>
         )}
         <div className="mt-4 text-sm leading-relaxed text-cream/80">
@@ -354,9 +391,7 @@ export default function ResultsPage() {
             </div>
             <div
               className={`rounded-xl border-[1.5px] border-ink p-4 ${
-                (multiPlan.savingsVsBestSingle ?? 0) >= WORTH_SPLIT_THRESHOLD
-                  ? 'bg-lime'
-                  : 'bg-cream/60'
+                splitWorthIt ? 'bg-lime' : 'bg-cream/60'
               }`}
             >
               <div className="font-mono text-[10px] uppercase tracking-[0.14em] text-ink/70">
@@ -364,14 +399,17 @@ export default function ResultsPage() {
               </div>
               <div className="bignum mt-2 text-3xl">{formatAUD(multiPlan.grandTotal)}</div>
               <div className="mt-1 text-xs">
-                {(multiPlan.savingsVsBestSingle ?? 0) >= WORTH_SPLIT_THRESHOLD ? (
+                {splitWorthIt ? (
                   <span className="font-semibold">
-                    Saves {formatAUD(multiPlan.savingsVsBestSingle!)} — worth it
+                    Saves{' '}
+                    {formatAUD(Math.max(0, bestSinglePlan.grandTotal - multiPlan.grandTotal))} —
+                    worth the extra stop
                   </span>
-                ) : (multiPlan.savingsVsBestSingle ?? 0) > 0 ? (
+                ) : bestSinglePlan.grandTotal - multiPlan.grandTotal > 0 ? (
                   <span className="text-ink/60">
-                    Only saves {formatAUD(multiPlan.savingsVsBestSingle!)} — probably not worth
-                    the extra trip
+                    Trims {formatAUD(bestSinglePlan.grandTotal - multiPlan.grandTotal)} but adds ~
+                    {Math.max(0, Math.round(multiPlan.tripMinutes - bestSinglePlan.tripMinutes))}{' '}
+                    min — not worth the extra trip
                   </span>
                 ) : (
                   <span className="text-ink/40">Costs more once travel is added</span>
@@ -395,7 +433,7 @@ export default function ResultsPage() {
           plan={plan}
           rank={idx}
           fulfilment={fulfilmentByRetailer}
-          worstTotal={plans[plans.length - 1]?.grandTotal ?? plan.grandTotal}
+          worstTotal={worstPlan.grandTotal}
           storesByRetailer={storesByRetailer}
         />
         </motion.div>
@@ -420,9 +458,11 @@ export default function ResultsPage() {
           }
           note={
             bestPlan.totalTravelCost > 0
-              ? `Fuel cost across ${bestPlan.retailerCodes.length} stop${
-                  bestPlan.retailerCodes.length === 1 ? '' : 's'
-                } at $${preferences.fuelCostPerKm}/km.`
+              ? `One ${bestPlan.route.totalKm.toFixed(1)} km loop across ${
+                  bestPlan.route.legs.length
+                } stop${bestPlan.route.legs.length === 1 ? '' : 's'}, fuel at $${
+                  preferences.fuelCostPerKm
+                }/km.`
               : 'Walkable or delivery — no fuel cost factored in.'
           }
           color="tomato"
@@ -431,8 +471,8 @@ export default function ResultsPage() {
         <FootCard
           label="BUNDLE SAVINGS"
           big={
-            plans.length > 1 && plans[plans.length - 1]!.grandTotal > bestPlan.grandTotal
-              ? `+ ${formatAUD(plans[plans.length - 1]!.grandTotal - bestPlan.grandTotal)}`
+            worstPlan.grandTotal > bestPlan.grandTotal
+              ? `+ ${formatAUD(worstPlan.grandTotal - bestPlan.grandTotal)}`
               : '$0'
           }
           note="vs. the worst single-store option. Members + true specials stacked where eligible."
@@ -563,6 +603,7 @@ function PlanCard({
             {plan.totalFees > 0 && <> · +{formatAUD(plan.totalFees)} fees</>}
             {plan.totalTravelCost > 0 && <> · +{formatAUD(plan.totalTravelCost)} travel*</>}
             {plan.totalLoyaltyRebate > 0 && <> · −{formatAUD(plan.totalLoyaltyRebate)} loyalty</>}
+            {plan.tripMinutes > 0 && <> · ~{Math.round(plan.tripMinutes)} min</>}
           </div>
           {savings > 0.5 && (
             <div className="mt-0.5 font-mono text-xs font-bold" style={{ color: 'var(--tomato)' }}>
@@ -572,21 +613,34 @@ function PlanCard({
         </div>
       </div>
 
-      {/* Real store details per retailer (name, address, hours from OSM) */}
+      {/* The route — store visits in driving order, with OSM details */}
       <div
         className="space-y-2.5 px-5 py-3"
         style={{ borderBottom: '1px dashed var(--ink-15)', background: 'var(--cream-2)' }}
       >
-        {plan.retailerCodes.map((code, i) => {
+        {plan.route.legs.length > 0 && (
+          <div className="flex flex-wrap items-center gap-x-2 font-mono text-[10px] uppercase tracking-[0.14em] text-ink/55">
+            <span className="font-bold text-ink/75">
+              {plan.route.legs.length > 1 ? 'Route' : 'Trip'}
+            </span>
+            <span>· {plan.route.totalKm.toFixed(1)} km</span>
+            <span>· ~{Math.round(plan.tripMinutes)} min incl. shopping</span>
+          </div>
+        )}
+        {(plan.route.legs.length > 0
+          ? plan.route.legs.map((leg) => leg.retailerCode)
+          : plan.retailerCodes
+        ).map((code, i) => {
           const store = storesByRetailer.get(code);
           const hours = formatOpeningHours(store?.hours) ?? RETAILER_FALLBACK_HOURS[code];
+          const leg = plan.route.legs[i];
           return (
-            <div key={code} className="flex items-start gap-3 text-xs">
+            <div key={`${code}-${i}`} className="flex items-start gap-3 text-xs">
               <span className="store__bug" style={{ width: 30, height: 30, fontSize: 11 }}>
                 {String(i + 1).padStart(2, '0')}
               </span>
               <div className="min-w-0 flex-1 space-y-0.5">
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                   <span className="ss-chip" style={{ background: 'var(--paper)', fontSize: 10, padding: '2px 8px' }}>
                     {RETAILER_NAMES[code] ?? code}
                   </span>
@@ -595,6 +649,11 @@ function PlanCard({
                   )}
                   {store?.distanceLabel && (
                     <span className="font-mono text-ink/50">{store.distanceLabel}</span>
+                  )}
+                  {leg && i > 0 && (
+                    <span className="font-mono text-ink/40">
+                      → {leg.fromPreviousKm.toFixed(1)} km drive
+                    </span>
                   )}
                 </div>
                 {store?.address && (
@@ -613,13 +672,28 @@ function PlanCard({
             </div>
           );
         })}
+        {plan.route.legs.length > 0 && (
+          <div className="pl-[42px] font-mono text-[10px] uppercase tracking-[0.12em] text-ink/40">
+            ↩ then back home
+          </div>
+        )}
       </div>
 
       {/* Line items */}
       <div className="bg-paper">
         {plan.lines.map((line, i) => {
           const alt = plan.lineAlternatives?.find((a) => a.listItemId === line.listItemId);
-          const allPrices = getAllPricesFor(line.productId);
+          // A generic "Any X" line carries a synthetic productId; recover the
+          // real catalogue product (from retailerProductId, "<retailer>-<id>")
+          // so its genericType expands the strip to every retailer + conv store.
+          const isGeneric = line.productId.startsWith('generic:');
+          const realProductId = isGeneric
+            ? line.retailerProductId.replace(/^[^-]+-/, '')
+            : line.productId;
+          const genericType = isGeneric
+            ? CATALOGUE_PRODUCTS.find((p) => p.id === realProductId)?.genericType
+            : undefined;
+          const allPrices = getAllPricesFor(realProductId, genericType);
           const hasConvenience = allPrices.some((p) => p.isConvenience);
           return (
             <div
