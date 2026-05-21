@@ -40,7 +40,7 @@ export default function ShopPage() {
           <ShoppingCart className="size-3" />
           Free to use · no signup
         </div>
-        <h1 className="bignum text-[clamp(48px,8vw,80px)] leading-[0.95]">
+        <h1 className="bignum text-[clamp(48px,8vw,80px)]">
           FIND THE
           <br />
           <span className="mark-lime">CHEAPEST</span> SHOP

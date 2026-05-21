@@ -153,7 +153,7 @@ export default function ShopListPage() {
         <div className="font-mono text-xs uppercase tracking-[0.14em] text-ink/70">
           ◉ YOUR LIST · {suburb}
         </div>
-        <h1 className="bignum mt-3 text-[clamp(36px,6vw,56px)] leading-[0.95]">
+        <h1 className="bignum mt-3 text-[clamp(36px,6vw,56px)]">
           BUILD A <span className="mark-lime">SMART</span> LIST
         </h1>
         <p className="mt-2 text-sm text-ink/70">

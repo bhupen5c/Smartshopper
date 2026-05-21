@@ -191,7 +191,7 @@ export default function ResultsPage() {
           <div className="font-mono text-xs uppercase tracking-[0.16em] text-ink/70">
             ◉ YOUR BEST DEALS
           </div>
-          <h1 className="bignum mt-4 text-[clamp(40px,7vw,68px)] leading-[0.95]">
+          <h1 className="bignum mt-4 text-[clamp(40px,7vw,68px)]">
             YOUR <span className="mark-lime">BASKET</span>,
             <br />
             REALIGNED.
