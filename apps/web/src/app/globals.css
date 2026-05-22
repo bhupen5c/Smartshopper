@@ -357,14 +357,14 @@
     border-color: var(--ink);
   }
 
-  /* Big display number.
-     line-height: 1 — Boldonse has tall ascenders that bleed above a
-     sub-1 line-box and visually overlap the line above. Never set a
-     tighter `leading-` on a multi-line .bignum heading. */
+  /* Big display heading / number.
+     line-height: 1.6 — Boldonse's glyphs are far taller than the em box
+     (~1.5x its font-size), so a multi-line .bignum heading overlaps badly
+     at anything below ~1.5. Do not tighten this. */
   .bignum {
     font-family: var(--font-display);
     font-weight: 400;
-    line-height: 1;
+    line-height: 1.6;
     letter-spacing: -0.04em;
   }
 
