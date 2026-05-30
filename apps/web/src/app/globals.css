@@ -358,13 +358,15 @@
   }
 
   /* Big display heading / number.
-     line-height: 1.6 — Boldonse's glyphs are far taller than the em box
-     (~1.5x its font-size), so a multi-line .bignum heading overlaps badly
-     at anything below ~1.5. Do not tighten this. */
+     line-height: 1.45 — Boldonse's glyphs are far taller than the em box
+     (~1.4x its font-size), so a multi-line .bignum heading overlaps below
+     ~1.4. 1.45 is the tightest value that still has clear separation
+     between lines without pushing CTAs below the fold. Do not tighten
+     further. */
   .bignum {
     font-family: var(--font-display);
     font-weight: 400;
-    line-height: 1.6;
+    line-height: 1.45;
     letter-spacing: -0.04em;
   }
 
