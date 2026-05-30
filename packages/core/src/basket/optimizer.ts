@@ -31,10 +31,10 @@ const IN_STORE_MINUTES = 25;
  *   - a `multi_retailer` plan if the user can drive a route between stores,
  *   - a `delivery_only` plan if the user has no car (noCarAvailable).
  *
- * Ranking key: `effectiveCost` — money out of pocket plus the dollar value
- * of the time the trip costs. That is what makes the optimiser save time
- * *and* money: a plan a few dollars cheaper but an hour slower loses to a
- * faster one. Full-coverage plans always rank above partial ones.
+ * Ranking key: `grandTotal` — the all-in money cost (basket + fees + the
+ * petrol estimate for the trip − loyalty rebate). Lowest total wins.
+ * Full-coverage plans always rank above partial ones. Trip time and the
+ * route are shown for information but never reorder the plans.
  *
  * The greedy multi-retailer heuristic is sufficient for typical grocery
  * lists (< 100 items) and runs in O(items × retailers); the multi-store
@@ -86,17 +86,15 @@ export function optimiseBasket({ items, offers, preferences }: OptimiseInput): O
 
   // Rank: full-coverage plans always beat partial ones — a cheaper plan
   // that can't fulfil the whole basket (e.g. a retailer that doesn't stock
-  // eggs) must never be presented as "best". Within equal coverage, sort by
-  // effectiveCost (money + the dollar value of the trip's time), then by
-  // money alone, then by the shorter drive.
+  // eggs) must never be presented as "best". Within equal coverage the
+  // lowest grand total wins (basket + fees + petrol − loyalty); a shorter
+  // drive only breaks an exact money tie.
   plans.sort((a, b) => {
     // coverage is fulfilled/total in [0,1]; round to avoid float noise.
     const covA = Math.round(a.coverage * 1000);
     const covB = Math.round(b.coverage * 1000);
     if (covA !== covB) return covB - covA; // higher coverage first
 
-    const eff = a.effectiveCost - b.effectiveCost;
-    if (Math.abs(eff) > 0.01) return eff;
     const money = a.grandTotal - b.grandTotal;
     if (Math.abs(money) > 0.01) return money;
     return a.route.totalKm - b.route.totalKm;
@@ -202,7 +200,6 @@ function buildSingleRetailerPlan(
     explanation: buildSingleRetailerExplanation(retailerCode, lines.length, items.length, quote),
     route,
     tripMinutes,
-    effectiveCost: grandTotal + timeCostOf(tripMinutes, prefs.timeValuePerHour),
   };
 }
 
@@ -347,7 +344,6 @@ function buildMultiRetailerPlan(
         : `Splits your basket across ${retailersUsed.size} retailers, all delivered to your door.`,
     route: { legs: routeLegs, totalKm: planned.totalKm, travelMinutes: planned.drivingMinutes },
     tripMinutes,
-    effectiveCost: grandTotal + timeCostOf(tripMinutes, prefs.timeValuePerHour),
   };
 }
 
@@ -364,7 +360,6 @@ function buildDeliveryOnlyPlan(
     kind: 'delivery_only',
     route: emptyRoute(),
     tripMinutes: 0,
-    effectiveCost: base.grandTotal,
     explanation: `Delivery-only plan — no car trips. ${base.explanation}`,
   };
 }
@@ -375,11 +370,6 @@ function buildDeliveryOnlyPlan(
 
 function emptyRoute(): OptimiserRoute {
   return { legs: [], totalKm: 0, travelMinutes: 0 };
-}
-
-/** Dollar value of a span of minutes at the user's hourly time valuation. */
-function timeCostOf(minutes: number, timeValuePerHour: number): number {
-  return (minutes / 60) * timeValuePerHour;
 }
 
 function roundKm(km: number): number {
@@ -432,9 +422,9 @@ function pickClosestStore(offers: readonly OptimiserOffer[], prefs: OptimiserPre
 }
 
 /**
- * Quote a retailer's fulfilment, picking the mode with the lowest
- * *effective* cost — money plus the dollar value of the time the trip
- * would consume. With `noCarAvailable` set, only delivery is considered.
+ * Quote a retailer's fulfilment, picking the cheapest mode by money out
+ * of pocket (fee + the petrol estimate). With `noCarAvailable` set, only
+ * delivery is considered.
  */
 function quoteForRetailer(
   retailerCode: string,
@@ -459,14 +449,8 @@ function quoteForRetailer(
   // No car → delivery is the only real option.
   if (prefs.noCarAvailable) eligible = eligible.filter((q) => q.mode === 'delivery');
   if (eligible.length > 0) {
-    // Trade time against money: pick the mode whose money cost plus the
-    // value of its trip time is lowest, not the cheapest money alone.
-    return eligible.reduce((best, q) =>
-      effectiveQuoteCost(q, prefs.timeValuePerHour) <
-      effectiveQuoteCost(best, prefs.timeValuePerHour)
-        ? q
-        : best,
-    );
+    // Cheapest mode by money out of pocket — fee plus the petrol estimate.
+    return eligible.reduce((best, q) => (q.totalCost < best.totalCost ? q : best));
   }
   // No eligible fulfilment; return a degenerate zero-fee "pickup" so totals stay defined.
   return {
@@ -487,13 +471,6 @@ function quoteForRetailer(
     eligible: false,
     ineligibleReason: 'No store within travel limit and delivery not available.',
   };
-}
-
-/** Money cost of a quote plus the dollar value of the time its trip costs. */
-function effectiveQuoteCost(quote: Quote, timeValuePerHour: number): number {
-  return (
-    quote.totalCost + timeCostOf(quote.roundTripMinutes + quote.inStoreMinutes, timeValuePerHour)
-  );
 }
 
 function pickDroppableRetailer(

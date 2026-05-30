@@ -176,13 +176,11 @@ export default function ResultsPage() {
   const bestPlan = plans[0]!;
   const bestSinglePlan = plans.find((p) => p.kind === 'single_retailer');
   const multiPlan = plans.find((p) => p.kind === 'multi_retailer');
-  // Priciest plan on money — the "you'd otherwise pay" baseline. Plans are
-  // ranked by value (money + time), so the last card isn't necessarily it.
+  // Priciest plan by grand total — the "you'd otherwise pay" baseline.
   const worstPlan = plans.reduce((a, b) => (a.grandTotal >= b.grandTotal ? a : b));
-  // Is splitting the basket genuinely better value than one store, once the
-  // extra driving and in-store time is priced in?
+  // Is splitting the basket cheaper overall than staying at one store?
   const splitWorthIt =
-    !!bestSinglePlan && !!multiPlan && multiPlan.effectiveCost < bestSinglePlan.effectiveCost;
+    !!bestSinglePlan && !!multiPlan && multiPlan.grandTotal < bestSinglePlan.grandTotal;
 
   return (
     <div className="mx-auto max-w-4xl space-y-6 px-6 py-8">
@@ -395,18 +393,13 @@ export default function ResultsPage() {
               <div className="mt-1 text-xs">
                 {splitWorthIt ? (
                   <span className="font-semibold">
-                    Saves{' '}
-                    {formatAUD(Math.max(0, bestSinglePlan.grandTotal - multiPlan.grandTotal))} —
-                    worth the extra stop
-                  </span>
-                ) : bestSinglePlan.grandTotal - multiPlan.grandTotal > 0 ? (
-                  <span className="text-ink/60">
-                    Trims {formatAUD(bestSinglePlan.grandTotal - multiPlan.grandTotal)} but adds ~
-                    {Math.max(0, Math.round(multiPlan.tripMinutes - bestSinglePlan.tripMinutes))}{' '}
-                    min — not worth the extra trip
+                    Saves {formatAUD(bestSinglePlan.grandTotal - multiPlan.grandTotal)} — worth the
+                    extra stop
                   </span>
                 ) : (
-                  <span className="text-ink/40">Costs more once travel is added</span>
+                  <span className="text-ink/40">
+                    Costs more than one store once petrol is added
+                  </span>
                 )}
               </div>
             </div>
