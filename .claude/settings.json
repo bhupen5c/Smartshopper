@@ -28,5 +28,17 @@
       "Bash(pnpm -r --filter '@smartshopper/core' test)",
       "Bash(pnpm test:*)"
     ]
+  },
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash $CLAUDE_PROJECT_DIR/.claude/hooks/load-obsidian-memory.sh"
+          }
+        ]
+      }
+    ]
   }
 }
